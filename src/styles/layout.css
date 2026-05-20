@@ -29,3 +29,27 @@
   position: absolute;
   inset: 0;
 }
+
+/* Export mode: hide all GUI chrome, let the scene fill the entire viewport.
+   Activated by scene.hideGUI() (adds body.gui-hidden). Playwright sets the
+   viewport to the target export resolution (e.g. 3840x2160) and screenshots
+   the whole window. */
+body.gui-hidden #left-rail,
+body.gui-hidden #right-rail,
+body.gui-hidden #timeline-bar {
+  display: none;
+}
+body.gui-hidden #app {
+  display: block;
+  height: 100vh;
+  width: 100vw;
+}
+body.gui-hidden #preview {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+body.gui-hidden #scene-stage {
+  position: absolute;
+  inset: 0;
+}

@@ -37,6 +37,20 @@ Recording (the eventual payoff — Instagram reels of compositions) is downstrea
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the implementation model, [RECORDING.md](./RECORDING.md) for the export pipeline, and [ROADMAP.md](./ROADMAP.md) for the rough phasing.
 
+## Quick start
+
+```bash
+npm install                              # once
+npx playwright install chromium          # once (export only)
+npm run dev                              # editor at http://localhost:5173
+
+# Author + save a scene from the editor, then:
+npm run export -- --scene scenes/foo.json
+# → foo.mp4 at 3840×2160 / 30 fps. Override with --fps, --width, --height.
+```
+
+ffmpeg must be on PATH (`brew install ffmpeg`).
+
 ## Status
 
 Planning. No code yet.

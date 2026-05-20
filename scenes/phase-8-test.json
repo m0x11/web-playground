@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "phase-8-test",
+  "duration": 2,
+  "root": {
+    "id": "root",
+    "component": "Grid",
+    "props": { "mode": "columns", "columns": 3, "gap": 24, "padding": 48 },
+    "children": [
+      { "id": "text-1", "component": "Text", "props": { "content": "ONE",   "size": 96, "color": "#1100ee", "weight": "bold" }, "children": [] },
+      { "id": "text-2", "component": "Text", "props": { "content": "TWO",   "size": 96, "color": "#1100ee", "weight": "bold" }, "children": [] },
+      { "id": "text-3", "component": "Text", "props": { "content": "THREE", "size": 96, "color": "#1100ee", "weight": "bold" }, "children": [] }
+    ]
+  },
+  "animations": [
+    { "id": "tween-1", "target": "text-1", "property": "scale",    "from": 0,     "to": 1,    "start": 0.0, "duration": 0.6, "easing": "easeOutBack" },
+    { "id": "tween-2", "target": "text-1", "property": "opacity",  "from": 0,     "to": 1,    "start": 0.0, "duration": 0.4, "easing": "easeOutCubic" },
+    { "id": "tween-3", "target": "text-2", "property": "scale",    "from": 0,     "to": 1,    "start": 0.3, "duration": 0.6, "easing": "easeOutBack" },
+    { "id": "tween-4", "target": "text-2", "property": "opacity",  "from": 0,     "to": 1,    "start": 0.3, "duration": 0.4, "easing": "easeOutCubic" },
+    { "id": "tween-5", "target": "text-3", "property": "scale",    "from": 0,     "to": 1,    "start": 0.6, "duration": 0.6, "easing": "easeOutBack" },
+    { "id": "tween-6", "target": "text-3", "property": "opacity",  "from": 0,     "to": 1,    "start": 0.6, "duration": 0.4, "easing": "easeOutCubic" },
+    { "id": "tween-7", "target": "root",   "property": "rotation", "from": -10,   "to": 0,    "start": 0.0, "duration": 1.5, "easing": "easeOutCubic" }
+  ]
+}
