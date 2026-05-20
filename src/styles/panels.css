@@ -74,6 +74,35 @@
   font-size: var(--fs-sm);
 }
 
+/* Scene controls (top of left rail) — name + save/load */
+.scene-name-input {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--panel-bg-pure);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  border-radius: 0;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+.scene-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.scene-controls__buttons {
+  display: flex;
+  gap: 6px;
+}
+.scene-controls__buttons .picker-btn {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
 /* Add-component picker buttons in the left rail */
 .picker-btn {
   display: block;

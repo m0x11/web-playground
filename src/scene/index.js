@@ -20,6 +20,7 @@ const EVENTS = [
   'selection-changed',
   'node-updated',
   'scene-tree-changed',
+  'scene-name-changed',
 ];
 
 export function createScene({ renderer }) {
@@ -220,6 +221,25 @@ export function createScene({ renderer }) {
     emit('scene-tree-changed');
   }
 
+  // ── persistence helpers ─────────────────────────────────────────────────
+
+  function serialize() {
+    if (!state.sceneJson) return null;
+    // Deep clone so the caller can't mutate runtime state.
+    return JSON.parse(JSON.stringify(state.sceneJson));
+  }
+
+  function setName(name) {
+    if (!state.sceneJson) return;
+    if (state.sceneJson.name === name) return;
+    state.sceneJson.name = name;
+    emit('scene-name-changed', name);
+  }
+
+  function getName() {
+    return state.sceneJson?.name ?? '';
+  }
+
   function _state() { return state; }
 
   return {
@@ -227,6 +247,7 @@ export function createScene({ renderer }) {
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps,
     updateProps, addNode, removeNode,
+    serialize, setName, getName,
     _state,
   };
 }

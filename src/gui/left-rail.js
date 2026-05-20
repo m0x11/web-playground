@@ -1,9 +1,11 @@
-// Left rail — scene tree + add-component picker.
+// Left rail — scene controls + scene tree + add-component picker.
 
 import { COMPONENT_REGISTRY, getComponent } from '../components/index.js';
+import { mountSceneControls } from './scene-controls.js';
 
 export function mountLeftRail(el, scene) {
   el.innerHTML = `
+    <div id="scene-controls-host"></div>
     <section class="panel-section">
       <div class="panel-label">scene tree</div>
       <div class="tree" id="tree"></div>
@@ -13,6 +15,8 @@ export function mountLeftRail(el, scene) {
       <div class="picker" id="picker"></div>
     </section>
   `;
+
+  mountSceneControls(el.querySelector('#scene-controls-host'), scene);
 
   const tree = el.querySelector('#tree');
   const picker = el.querySelector('#picker');
