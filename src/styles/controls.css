@@ -82,8 +82,33 @@
   cursor: pointer;
 }
 
-/* Subhead above prop controls — names the selected component */
+/* Text input */
+.control input[type="text"].control__input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Color picker */
+.control input[type="color"].control__input--color {
+  width: 36px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+.control input[type="color"].control__input--color::-webkit-color-swatch-wrapper { padding: 0; }
+.control input[type="color"].control__input--color::-webkit-color-swatch { border: none; }
+.control--color .control__value {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.02em;
+}
+
+/* Subhead above prop controls — names the selected component, with delete */
 .props-subhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-muted);
   font-size: var(--fs-base);
   margin-bottom: 12px;
@@ -93,5 +118,22 @@
 
 .props-subhead .props-subhead__id {
   color: var(--text-faint);
-  margin-left: 8px;
+  flex: 1;
+}
+
+.props-delete {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.props-delete:hover {
+  background: var(--accent-warn);
+  color: var(--text-on-dark);
+  border-color: var(--accent-warn);
 }

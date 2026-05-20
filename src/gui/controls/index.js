@@ -1,8 +1,10 @@
 // Control factory. Given a prop schema, return the right control element.
-// Adding a new prop type = adding a case here + a new control module.
+// Adding a new prop type = a new case here + a new control module.
 
 import { createSlider } from './slider.js';
 import { createSelect } from './select.js';
+import { createTextInput } from './text-input.js';
+import { createColorPicker } from './color.js';
 
 export function createControl(propKey, propSchema, currentValue, onChange) {
   const label = propSchema.label ?? propKey;
@@ -25,6 +27,19 @@ export function createControl(propKey, propSchema, currentValue, onChange) {
         value: currentValue,
         onChange,
       });
+    case 'text':
+      return createTextInput({
+        label,
+        value: currentValue,
+        placeholder: propSchema.placeholder,
+        onChange,
+      });
+    case 'color':
+      return createColorPicker({
+        label,
+        value: currentValue,
+        onChange,
+      });
     default: {
       const fallback = document.createElement('div');
       fallback.className = 'control control--unknown';
@@ -34,7 +49,6 @@ export function createControl(propKey, propSchema, currentValue, onChange) {
   }
 }
 
-// Should this prop be shown given the current sibling prop values?
 export function isVisible(propSchema, currentProps) {
   if (!propSchema.visibleWhen) return true;
   for (const [key, value] of Object.entries(propSchema.visibleWhen)) {
@@ -43,9 +57,6 @@ export function isVisible(propSchema, currentProps) {
   return true;
 }
 
-// Which other props watch this propKey via their visibleWhen? Used by the
-// props panel to decide whether to re-render after a change (re-render only
-// when needed; otherwise leave the slider DOM alone so a drag isn't broken).
 export function watchersOf(propKey, schemaProps) {
   return Object.entries(schemaProps).some(
     ([, p]) => p.visibleWhen && propKey in p.visibleWhen

@@ -1,4 +1,4 @@
-// Right rail — properties of the active selection (Phase 1).
+// Right rail — properties of the active selection.
 // Animations panel arrives in Phase 5.
 
 import { getComponent, withDefaults } from '../components/index.js';
@@ -39,7 +39,25 @@ export function mountRightRail(el, scene) {
 
     const subhead = document.createElement('div');
     subhead.className = 'props-subhead';
-    subhead.innerHTML = `${Comp.schema.name}<span class="props-subhead__id">${node.id}</span>`;
+
+    const name = document.createElement('span');
+    name.textContent = Comp.schema.name;
+    subhead.appendChild(name);
+
+    const idEl = document.createElement('span');
+    idEl.className = 'props-subhead__id';
+    idEl.textContent = node.id;
+    subhead.appendChild(idEl);
+
+    const isRoot = scene.getRootNode()?.id === id;
+    if (!isRoot) {
+      const del = document.createElement('button');
+      del.className = 'props-delete';
+      del.textContent = '× delete';
+      del.addEventListener('click', () => scene.removeNode(id));
+      subhead.appendChild(del);
+    }
+
     body.appendChild(subhead);
 
     for (const [propKey, propSchema] of Object.entries(schemaProps)) {
@@ -57,5 +75,6 @@ export function mountRightRail(el, scene) {
 
   scene.on('selection-changed', renderProps);
   scene.on('scene-loaded', renderProps);
+  scene.on('scene-tree-changed', renderProps);
   renderProps();
 }

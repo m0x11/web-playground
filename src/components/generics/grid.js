@@ -60,6 +60,9 @@ export function mount(el, props, ctx) {
   apply(el, frame, props, ctx);
 
   return {
+    // Real child scene-nodes mount inside the frame, so they live alongside
+    // (or replace) the debug placeholder cells.
+    childRoot: frame,
     patch(nextProps, nextCtx = ctx) {
       ctx = nextCtx;
       apply(el, frame, nextProps, ctx);
@@ -105,19 +108,25 @@ function apply(el, frame, p, ctx) {
 
   const showPlaceholders = (ctx?.childCount ?? 0) === 0;
   if (showPlaceholders) renderPlaceholders(frame, p);
-  else frame.innerHTML = '';
+  else clearPlaceholders(frame);
+}
+
+function clearPlaceholders(frame) {
+  for (const cell of [...frame.querySelectorAll('.gen-grid__cell')]) cell.remove();
 }
 
 function renderPlaceholders(frame, p) {
+  const existing = [...frame.querySelectorAll('.gen-grid__cell')];
   const count = p.mode === 'columns' ? p.columns : 4;
-  while (frame.children.length > count) frame.lastChild.remove();
-  while (frame.children.length < count) {
+  while (existing.length > count) existing.pop().remove();
+  while (existing.length < count) {
     const cell = document.createElement('div');
     cell.className = 'gen-grid__cell';
     frame.appendChild(cell);
+    existing.push(cell);
   }
   for (let i = 0; i < count; i++) {
-    const cell = frame.children[i];
+    const cell = existing[i];
     cell.textContent = String(i);
     Object.assign(cell.style, {
       border: '1px dashed rgba(0,0,0,0.25)',

@@ -17,9 +17,13 @@
 //   2. Import + register here. That's it.
 
 import * as Grid from './generics/grid.js';
+import * as Text from './generics/text.js';
+import * as Image from './generics/image.js';
 
 export const COMPONENT_REGISTRY = {
   Grid,
+  Text,
+  Image,
 };
 
 export function getComponent(name) {

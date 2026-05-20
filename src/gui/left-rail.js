@@ -1,8 +1,6 @@
 // Left rail — scene tree + add-component picker.
-// Phase 1: tree is rendered + clickable for selection. Picker remains a
-// placeholder until Phase 2.
 
-import { getComponent } from '../components/index.js';
+import { COMPONENT_REGISTRY, getComponent } from '../components/index.js';
 
 export function mountLeftRail(el, scene) {
   el.innerHTML = `
@@ -12,13 +10,14 @@ export function mountLeftRail(el, scene) {
     </section>
     <section class="panel-section">
       <div class="panel-label">add component</div>
-      <div class="panel-placeholder">picker arrives in phase 2</div>
+      <div class="picker" id="picker"></div>
     </section>
   `;
 
   const tree = el.querySelector('#tree');
+  const picker = el.querySelector('#picker');
 
-  function render() {
+  function renderTree() {
     tree.innerHTML = '';
     const root = scene.getRootNode();
     if (!root) {
@@ -55,7 +54,47 @@ export function mountLeftRail(el, scene) {
     }
   }
 
-  scene.on('scene-loaded', render);
-  scene.on('selection-changed', render);
-  render();
+  function renderPicker() {
+    picker.innerHTML = '';
+
+    const hint = document.createElement('div');
+    hint.className = 'panel-placeholder';
+    hint.style.marginBottom = '10px';
+    hint.textContent = 'adds under selected (or root)';
+    picker.appendChild(hint);
+
+    for (const [name, comp] of Object.entries(COMPONENT_REGISTRY)) {
+      const btn = document.createElement('button');
+      btn.className = 'picker-btn';
+      btn.textContent = `+ ${comp.schema.name}`;
+      btn.addEventListener('click', () => addComponent(name));
+      picker.appendChild(btn);
+    }
+  }
+
+  function addComponent(componentName) {
+    const parentId = chooseInsertionParent();
+    if (parentId) scene.addNode(parentId, componentName);
+  }
+
+  // Where should a new component land? Under selected if it accepts children;
+  // otherwise under selected's parent; otherwise root.
+  function chooseInsertionParent() {
+    const root = scene.getRootNode();
+    if (!root) return null;
+    const selectedId = scene.selectedId() ?? root.id;
+    const selected = scene.getNode(selectedId);
+    if (!selected) return root.id;
+    const accepts = getComponent(selected.component).schema.children !== 'none';
+    if (accepts) return selectedId;
+    // Selected is a leaf — try its parent (Phase 2: fall back to root).
+    return root.id;
+  }
+
+  scene.on('scene-loaded', () => { renderTree(); renderPicker(); });
+  scene.on('selection-changed', renderTree);
+  scene.on('scene-tree-changed', renderTree);
+
+  renderTree();
+  renderPicker();
 }

@@ -19,6 +19,7 @@ const EVENTS = [
   'play-state-changed',
   'selection-changed',
   'node-updated',
+  'scene-tree-changed',
 ];
 
 export function createScene({ renderer }) {
@@ -50,8 +51,32 @@ export function createScene({ renderer }) {
     return null;
   }
 
+  function findParent(root, childId) {
+    if (!root) return null;
+    for (const child of root.children ?? []) {
+      if (child.id === childId) return root;
+      const found = findParent(child, childId);
+      if (found) return found;
+    }
+    return null;
+  }
+
   function fullPropsFor(node) {
     return withDefaults(getComponent(node.component).schema, node.props);
+  }
+
+  function collectIds(node, out = []) {
+    if (!node) return out;
+    out.push(node.id);
+    for (const child of node.children ?? []) collectIds(child, out);
+    return out;
+  }
+
+  function generateId(componentName) {
+    const slug = componentName.toLowerCase();
+    let n = 1;
+    while (findNode(state.sceneJson?.root, `${slug}-${n}`)) n += 1;
+    return `${slug}-${n}`;
   }
 
   // ── public API ──────────────────────────────────────────────────────────
@@ -62,7 +87,6 @@ export function createScene({ renderer }) {
     renderer.mount(json);
     emit('scene-loaded', json);
     setTime(0);
-    // Default selection: root node.
     if (json?.root?.id) select(json.root.id);
   }
 
@@ -115,7 +139,7 @@ export function createScene({ renderer }) {
     return () => listeners[event].delete(fn);
   }
 
-  // ── selection + tree access ────────────────────────────────────────────
+  // ── selection + tree access ─────────────────────────────────────────────
 
   function select(id) {
     if (state.selectedId === id) return;
@@ -123,24 +147,15 @@ export function createScene({ renderer }) {
     emit('selection-changed', id);
   }
 
-  function selectedId() {
-    return state.selectedId;
-  }
-
-  function getNode(id) {
-    return findNode(state.sceneJson?.root, id);
-  }
-
-  function getRootNode() {
-    return state.sceneJson?.root ?? null;
-  }
-
+  function selectedId() { return state.selectedId; }
+  function getNode(id) { return findNode(state.sceneJson?.root, id); }
+  function getRootNode() { return state.sceneJson?.root ?? null; }
   function getFullProps(id) {
     const node = getNode(id);
     return node ? fullPropsFor(node) : null;
   }
 
-  // ── prop mutation ──────────────────────────────────────────────────────
+  // ── prop mutation ───────────────────────────────────────────────────────
 
   function updateProps(id, partialProps) {
     const node = getNode(id);
@@ -153,12 +168,65 @@ export function createScene({ renderer }) {
     emit('node-updated', { id, props: node.props });
   }
 
+  // ── tree mutation ───────────────────────────────────────────────────────
+
+  function addNode(parentId, componentName, propsOverride = {}) {
+    const parent = getNode(parentId);
+    if (!parent) {
+      console.warn(`scene.addNode: unknown parent "${parentId}"`);
+      return null;
+    }
+    const ParentComp = getComponent(parent.component);
+    if (ParentComp.schema.children === 'none') {
+      console.warn(`scene.addNode: parent "${parent.component}" does not accept children`);
+      return null;
+    }
+    // Ensure the new component exists.
+    getComponent(componentName);
+    const newNode = {
+      id: generateId(componentName),
+      component: componentName,
+      props: propsOverride,
+      children: [],
+    };
+    parent.children = parent.children ?? [];
+    parent.children.push(newNode);
+    renderer.addChild(parentId, newNode, parent.children.length);
+    select(newNode.id);
+    emit('scene-tree-changed');
+    return newNode.id;
+  }
+
+  function removeNode(id) {
+    if (!state.sceneJson?.root || state.sceneJson.root.id === id) {
+      console.warn('scene.removeNode: refusing to remove root');
+      return;
+    }
+    const parent = findParent(state.sceneJson.root, id);
+    if (!parent) return;
+    const idx = parent.children.findIndex(c => c.id === id);
+    if (idx < 0) return;
+
+    const removedIds = new Set(collectIds(parent.children[idx]));
+    parent.children.splice(idx, 1);
+
+    renderer.removeNode(id);
+    renderer.refreshCtx(parent.id, parent.children.length);
+
+    if (removedIds.has(state.selectedId)) {
+      state.selectedId = null;
+      select(parent.id);
+    }
+    emit('scene-tree-changed');
+  }
+
   function _state() { return state; }
 
   return {
     loadScene, setTime, play, pause, duration,
     ready, framePainted, setSize, hideGUI, on,
-    select, selectedId, getNode, getRootNode, getFullProps, updateProps,
+    select, selectedId, getNode, getRootNode, getFullProps,
+    updateProps, addNode, removeNode,
     _state,
   };
 }

@@ -73,3 +73,25 @@
   color: var(--text-faint);
   font-size: var(--fs-sm);
 }
+
+/* Add-component picker buttons in the left rail */
+.picker-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  margin: 4px 0;
+  background: var(--panel-bg-pure);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+.picker-btn:hover {
+  background: var(--panel-bg-alt);
+  border-color: var(--accent);
+  color: var(--accent);
+}
