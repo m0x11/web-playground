@@ -12,7 +12,7 @@ How the pieces fit. This is the working model; expect revisions as we build.
 
 **Vite for dev HMR.** Not for bundling philosophy — just because hand-iterating GUI without HMR is miserable. If Vite gets in the way, fall back to sdf-playground's import-map + static-server setup.
 
-**GSAP for animation.** Already in `second-nature-next`. Mature easing curve support, good timeline API, plays nicely with DOM. Web Animations API was the alternative but loses on curve flexibility.
+**Hand-rolled animation runtime.** Decided against GSAP, anime.js, motion. The pipeline must deliver 4K30 frame-perfect exports (see [RECORDING.md](./RECORDING.md)), which means owning the clock end-to-end: `scene.setTime(t)` must compute every animated property synchronously and deterministically, with zero internal scheduling. Any third-party engine adds variables — RAF tickers, microtask batching, lag smoothing — that risk subtle export non-determinism. We're already building a custom easing-curve editor, so we own curve sampling regardless. anime.js v4 is the fallback if we hit a genuinely hard case, but a tween is `progress → eased → lerp → apply` — that's ~15 lines.
 
 ## The three layers, in code
 
@@ -96,9 +96,13 @@ Why scene-as-folder, not scene-as-file: lets per-scene custom code (the bits Cla
 
 ### 3. Animation layer — `src/animation/`
 
-- `timeline.js` — wraps GSAP. Exposes `addTween(targetElId, property, { from, to, duration, easing, delay })` and play/pause/scrub controls.
-- `easing-editor/` — visual curve editor (canvas-based control points + LUT preview). Outputs GSAP-compatible curves.
-- Animatable property registry — explicit whitelist of what can be animated, paired with how to apply it to a DOM node (e.g. `scale` → `transform: scale(…)`, `width` → `style.width = '…px'`). Whitelist grows.
+Hand-rolled. The core loop is small enough to own outright, and owning it is what makes 4K30 deterministic export possible (see [RECORDING.md](./RECORDING.md)).
+
+- `timeline.js` — the time-driven engine. Single source of truth for "what time is it in the scene." Exposes `setTime(t)`, `addTween(targetElId, property, { from, to, start, duration, easing })`, `play()`, `pause()`, `scrub(t)`, `duration()`. No internal RAF scheduler at runtime — the GUI drives playback via one rAF loop that calls `setTime(performance.now() - startMs)`. The export driver calls `setTime(frameIdx / fps)` directly. Same code path either way.
+- `tween.js` — pure function: `tweenValueAt(spec, t) → value`. Given a tween spec and a time, returns the eased + lerped value. No side effects. Trivially testable.
+- `property-registry.js` — explicit whitelist of animatable properties. Each entry knows how to apply a value to a DOM node. Transform parts (`scale`, `rotation`, `translateX/Y`) funnel through a per-element transform composer so multiple tweens compose cleanly into one `transform` string. Whitelist grows over time.
+- `easing/` — curve representations (CSS bezier, custom LUT from the curve editor, spring presets) plus sampling functions. Pure.
+- `easing-editor/` — visual curve editor (canvas-based control points + LUT preview). Outputs curve specs that `easing/` can sample.
 
 ## The renderer — `src/renderer/`
 
@@ -111,6 +115,24 @@ Two passes:
 - **Patch.** On scene-state change, diff old vs new tree by id. Same id → call `patch()`. New id → mount. Removed id → unmount.
 
 The renderer also exposes a lookup `getEl(id)` so the animation layer can grab the right DOM node by scene-id.
+
+## Scene/GUI separation contract
+
+The recording pipeline (see [RECORDING.md](./RECORDING.md)) drives the same scene runtime that the GUI drives. That requires a clean separation, enforced from day one:
+
+- **Scene runtime** — pure state + behavior. Owns the scene tree, the timeline, the renderer. Exposes a small API surface: `loadScene(json)`, `setTime(t)`, `play()`, `pause()`, `duration()`, `ready()`, `framePainted()`, plus an event channel. Knows nothing about the GUI.
+- **GUI** — reads / mutates Scene state, displays it, generates controls. Has no animation timing logic of its own.
+- **Export driver** — a Playwright script (Node) that loads the same `index.html`, hides the GUI, and steps the Scene runtime frame-by-frame via the same API.
+
+Practical rules:
+
+- No `setTimeout` / `setInterval` / `requestIdleCallback` in animation paths.
+- No reading `Date.now()` / `performance.now()` inside tween evaluation — only inside the GUI's playback rAF loop.
+- All scene-state mutations go through Scene API methods, not direct DOM pokes from GUI components.
+- The page exposes the runtime as `window.__scene` so Playwright can drive it without parsing DOM.
+- `framePainted()` returns a Promise that resolves after a double-rAF, so export can reliably wait for paint completion.
+
+Rule of thumb: build the Scene runtime feature first, then wrap it in GUI. Never the reverse.
 
 ## GUI structure — `src/gui/`
 

@@ -1,0 +1,22 @@
+#app {
+  display: grid;
+  grid-template-columns: var(--left-rail-w) 1fr var(--right-rail-w);
+  grid-template-rows: 1fr;
+  grid-template-areas: "left center right";
+  height: 100%;
+}
+
+#left-rail  { grid-area: left;   }
+#preview    { grid-area: center; }
+#right-rail { grid-area: right;  }
+
+#preview {
+  position: relative;
+  background: var(--scene-bg);
+  overflow: hidden;
+}
+
+#scene-root {
+  position: absolute;
+  inset: 0;
+}

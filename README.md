@@ -31,10 +31,11 @@ Recording (the eventual payoff — Instagram reels of compositions) is downstrea
 
 - Vanilla JS modules (no framework)
 - Vite for HMR during dev (drop later if it gets in the way)
-- GSAP for animation runtime
+- Hand-rolled animation runtime (no library — required for deterministic 4K30 export; see [RECORDING.md](./RECORDING.md))
+- Playwright + ffmpeg for offline 4K30 export
 - Typography and palette: lifted from `sdf-playground-main` (PP Right Serif Mono, same dark UI feel)
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the implementation model and [ROADMAP.md](./ROADMAP.md) for the rough phasing.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the implementation model, [RECORDING.md](./RECORDING.md) for the export pipeline, and [ROADMAP.md](./ROADMAP.md) for the rough phasing.
 
 ## Status
 

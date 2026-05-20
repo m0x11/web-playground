@@ -1,0 +1,28 @@
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background: var(--scene-bg);
+  color: var(--text-on-dark);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  border-radius: 0;
+}

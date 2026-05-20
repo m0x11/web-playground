@@ -12,8 +12,9 @@ Get the empty shell standing up.
 - Lift fonts + color palette from `sdf-playground-main` (PP Right Serif Mono + the dark UI feel)
 - Empty three-region layout: left rail, right rail, top bar, center preview area
 - Stub renderer that mounts a hardcoded scene into the preview (single `<div>` with text — proves the pipeline)
+- Expose the scene runtime as `window.__scene` from the start, even though there's barely anything on it yet — this enforces the scene/GUI separation contract before bad habits set in (see ARCHITECTURE.md → Scene/GUI separation contract)
 
-**Done when:** `npm run dev` shows a styled empty editor matching sdf-playground's typography, with a single hardcoded element in the preview.
+**Done when:** `npm run dev` shows a styled empty editor matching sdf-playground's typography, with a single hardcoded element in the preview, and `window.__scene` exists in the page console.
 
 ## Phase 1 — First generic + schema-driven controls
 
@@ -62,13 +63,16 @@ The first "real" feature for the snowflake-reel use case.
 
 ## Phase 5 — Animation engine v1
 
-- GSAP wrapper as `src/animation/timeline.js`
-- Animatable property registry — start with `scale`, `opacity`, `width`, `height`
-- Right-rail "Animations" tab for the selected element: add tween, set from/to/duration/delay, choose easing from preset list
-- Top-bar play/pause/scrub
-- Scene format extended with `animations` array (persisted on save/load)
+Hand-rolled. The whole point is owning the clock so Phase 8 export is deterministic.
 
-**Done when:** Add a scale-up animation to a grid item, hit play, watch it tween in. Save the scene, reload, animation persists.
+- `src/animation/timeline.js` — `setTime(t)`, `play()`, `pause()`, `scrub(t)`, `addTween()`, `duration()`. No internal RAF; GUI drives playback with one rAF loop calling `setTime()`.
+- `src/animation/tween.js` — pure `tweenValueAt(spec, t) → value`.
+- `src/animation/property-registry.js` — start with `scale`, `opacity`, `width`, `height`, plus a transform composer for the transform-touching ones.
+- Right-rail "Animations" tab for the selected element: add tween, set from/to/start/duration, choose easing from preset list (custom curves come in Phase 6).
+- Top-bar play/pause/scrub bar with a draggable playhead.
+- Scene format extended with `animations` array (persisted on save/load).
+
+**Done when:** Add a scale-up animation to a grid item, hit play, watch it tween in. Scrub to any point manually and see the exact same frame. Save the scene, reload, animation persists.
 
 ## Phase 6 — Easing curve editor
 
@@ -89,15 +93,17 @@ Prove the "port from another project" path.
 
 **Done when:** The snowflake-border renders as a Border component option on Grid, configurable from the right rail.
 
-## Phase 8 — Recording
+## Phase 8 — Recording (4K30 offline export)
 
-The eventual payoff.
+Real-time capture (MediaRecorder, getDisplayMedia) cannot deliver 4K30 frame-perfect from DOM. We render offline. See [RECORDING.md](./RECORDING.md) for the full architecture.
 
-- MediaRecorder on the preview region's `getDisplayMedia` stream, OR offscreen rendering at higher resolution (defer that until needed)
-- Timeline-driven recording: hit record, the scene plays from t=0, recording stops when the timeline ends
-- Output MP4 / WebM download
+- Node-side export script using Playwright. Loads the playground page at a forced 3840×2160 viewport, hides the GUI, calls `window.__scene.setTime(frameIdx / fps)` per frame, awaits paint, screenshots.
+- Pipes PNG bytes into ffmpeg via `image2pipe` → MP4 (libx264, yuv420p, crf 18).
+- Asset/font readiness gate: await `window.__scene.ready()` before frame 0.
+- Top-bar "Export" button that triggers the script via a small local dev endpoint, or just a printed command for v0.
+- Progress indicator + per-frame error logging.
 
-**Done when:** Snowflake-reel scene records cleanly at 1080p with all animations intact.
+**Done when:** Snowflake-reel scene exports to a 4K30 MP4 cleanly. Re-exporting the same scene produces a bit-identical PNG sequence (ignoring codec non-determinism in the final mp4).
 
 ## Beyond
 

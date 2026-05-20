@@ -1,0 +1,55 @@
+/* Design tokens — lifted from sdf-playground's instrument-panel aesthetic.
+   Dark scene area, light gray control panels, cobalt accent, monospace serif.
+   Zero border-radius anywhere; sharp edges only. */
+
+@font-face {
+  font-family: "PP Right Serif Mono";
+  src: url("/fonts/PPRightSerifMono-Regular.woff2") format("woff2"),
+       url("/fonts/PPRightSerifMono-Regular.woff") format("woff"),
+       url("/fonts/PPRightSerifMono-Regular.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ───── palette ───── */
+  --scene-bg:       #d6d6d7;  /* preview area default — neutral light gray */
+  --scene-bg-dark:  #1a1a1a;  /* dark variant for scenes that want it */
+  --scene-bg-deep:  #0d0d10;  /* deepest dark — easing editor canvas etc */
+
+  --panel-bg:       #ececed;  /* control panel base */
+  --panel-bg-alt:   #dcdcdd;  /* hover state */
+  --panel-bg-pure:  #ffffff;  /* focused inputs */
+
+  --border:         #b8b8b8;  /* default input / divider border */
+  --border-strong:  #1100ee;  /* focused / active border */
+  --border-dim:     #333;     /* dark dividers inside dark panels */
+
+  --text:           #000;     /* primary text on light panels */
+  --text-muted:     #555;     /* hints, secondary */
+  --text-faint:     #888;     /* very secondary */
+  --text-dim:       #b8b8b8;  /* tertiary */
+
+  --text-on-dark:        #fff;
+  --text-on-dark-muted:  #aaa;
+
+  --accent:         #1100ee;  /* cobalt — labels, highlights, focus */
+  --accent-warn:    #e88020;  /* warning / "modified" indicator */
+
+  --modal-scrim:    rgba(0, 0, 0, 0.55);
+
+  /* ───── typography ───── */
+  --font-mono: "PP Right Serif Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-tiny:   9px;
+  --fs-xs:     10px;
+  --fs-sm:     11px;
+  --fs-base:   12px;
+  --fs-md:     13px;
+  --fs-lg:     14px;
+
+  /* ───── layout ───── */
+  --left-rail-w:  260px;
+  --right-rail-w: 320px;
+}

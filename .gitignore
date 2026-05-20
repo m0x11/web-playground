@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Export outputs (PNG sequences + intermediates)
+exports/
+
+# Local env
+.env
+.env.local

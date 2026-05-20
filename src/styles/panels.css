@@ -1,0 +1,37 @@
+/* Side rails — light instrument-panel surfaces matching sdf-playground's
+   #controls aesthetic. */
+
+#left-rail,
+#right-rail {
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+#left-rail {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+#right-rail {
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.panel-section {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+}
+
+.panel-label {
+  color: var(--accent);
+  font-size: var(--fs-md);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.panel-placeholder {
+  color: var(--text-muted);
+  font-size: var(--fs-lg);
+  line-height: 1.5;
+}
