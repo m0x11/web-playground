@@ -8,11 +8,13 @@ import { createScene } from './scene/index.js';
 import { renderer } from './renderer/index.js';
 import { mountLeftRail } from './gui/left-rail.js';
 import { mountRightRail } from './gui/right-rail.js';
+import { mountTimelineBar } from './gui/timeline-bar.js';
 
 const scene = createScene({ renderer });
 
 mountLeftRail(document.getElementById('left-rail'), scene);
 mountRightRail(document.getElementById('right-rail'), scene);
+mountTimelineBar(document.getElementById('timeline-bar'), scene);
 
 // Phase 1 demo scene — a single Grid. Adjust its props from the right rail.
 scene.loadScene({

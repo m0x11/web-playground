@@ -12,6 +12,7 @@
 //   - All animated values derive from the timeline's current `t`.
 
 import { getComponent, withDefaults } from '../components/index.js';
+import { createTimeline } from '../animation/timeline.js';
 
 const EVENTS = [
   'scene-loaded',
@@ -21,16 +22,18 @@ const EVENTS = [
   'node-updated',
   'scene-tree-changed',
   'scene-name-changed',
+  'animations-changed',
 ];
 
 export function createScene({ renderer }) {
   const listeners = Object.fromEntries(EVENTS.map(name => [name, new Set()]));
+  const timeline = createTimeline({ getEl: id => renderer.getEl(id) });
 
   const state = {
     sceneJson: null,
     time: 0,
     playing: false,
-    duration: 0,
+    duration: 0, // explicit (from sceneJson); effective duration = duration() includes animations.
     size: { w: null, h: null },
     guiHidden: false,
     selectedId: null,
@@ -80,12 +83,20 @@ export function createScene({ renderer }) {
     return `${slug}-${n}`;
   }
 
+  function generateAnimationId() {
+    const existing = new Set((state.sceneJson?.animations ?? []).map(a => a.id));
+    let n = 1;
+    while (existing.has(`tween-${n}`)) n += 1;
+    return `tween-${n}`;
+  }
+
   // ── public API ──────────────────────────────────────────────────────────
 
   function loadScene(json) {
     state.sceneJson = json;
     state.duration = json?.duration ?? 0;
     renderer.mount(json);
+    timeline.setAnimations(json?.animations ?? []);
     emit('scene-loaded', json);
     setTime(0);
     if (json?.root?.id) select(json.root.id);
@@ -93,8 +104,7 @@ export function createScene({ renderer }) {
 
   function setTime(t) {
     state.time = t;
-    // TODO Phase 5: evaluate animations and patch animated props.
-    renderer.update(t);
+    timeline.setTime(t);
     emit('time-changed', t);
   }
 
@@ -110,8 +120,11 @@ export function createScene({ renderer }) {
     emit('play-state-changed', false);
   }
 
+  function playing() { return state.playing; }
+  function time() { return state.time; }
+
   function duration() {
-    return state.duration;
+    return Math.max(state.duration, timeline.computeDuration());
   }
 
   function ready() {
@@ -182,7 +195,6 @@ export function createScene({ renderer }) {
       console.warn(`scene.addNode: parent "${parent.component}" does not accept children`);
       return null;
     }
-    // Ensure the new component exists.
     getComponent(componentName);
     const newNode = {
       id: generateId(componentName),
@@ -211,6 +223,11 @@ export function createScene({ renderer }) {
     const removedIds = new Set(collectIds(parent.children[idx]));
     parent.children.splice(idx, 1);
 
+    // Also remove any animations targeting this node or its descendants.
+    state.sceneJson.animations = (state.sceneJson.animations ?? [])
+      .filter(a => !removedIds.has(a.target));
+    timeline.setAnimations(state.sceneJson.animations);
+
     renderer.removeNode(id);
     renderer.refreshCtx(parent.id, parent.children.length);
 
@@ -219,13 +236,52 @@ export function createScene({ renderer }) {
       select(parent.id);
     }
     emit('scene-tree-changed');
+    emit('animations-changed');
+  }
+
+  // ── animation mutation ──────────────────────────────────────────────────
+
+  function addAnimation(spec) {
+    if (!state.sceneJson) return null;
+    if (!state.sceneJson.animations) state.sceneJson.animations = [];
+    const full = { id: generateAnimationId(), ...spec };
+    state.sceneJson.animations.push(full);
+    timeline.add(full);
+    setTime(state.time); // re-evaluate at current time so the change is visible.
+    emit('animations-changed');
+    return full.id;
+  }
+
+  function removeAnimation(id) {
+    if (!state.sceneJson?.animations) return;
+    state.sceneJson.animations = state.sceneJson.animations.filter(a => a.id !== id);
+    timeline.remove(id);
+    setTime(state.time);
+    emit('animations-changed');
+  }
+
+  function updateAnimation(id, partial) {
+    if (!state.sceneJson?.animations) return;
+    const anim = state.sceneJson.animations.find(a => a.id === id);
+    if (!anim) return;
+    Object.assign(anim, partial);
+    timeline.update(id, partial);
+    setTime(state.time);
+    emit('animations-changed');
+  }
+
+  function listAnimations() {
+    return [...(state.sceneJson?.animations ?? [])];
+  }
+
+  function listAnimationsForTarget(targetId) {
+    return (state.sceneJson?.animations ?? []).filter(a => a.target === targetId);
   }
 
   // ── persistence helpers ─────────────────────────────────────────────────
 
   function serialize() {
     if (!state.sceneJson) return null;
-    // Deep clone so the caller can't mutate runtime state.
     return JSON.parse(JSON.stringify(state.sceneJson));
   }
 
@@ -243,10 +299,12 @@ export function createScene({ renderer }) {
   function _state() { return state; }
 
   return {
-    loadScene, setTime, play, pause, duration,
+    loadScene, setTime, play, pause, playing, time, duration,
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps,
     updateProps, addNode, removeNode,
+    addAnimation, removeAnimation, updateAnimation,
+    listAnimations, listAnimationsForTarget,
     serialize, setName, getName,
     _state,
   };

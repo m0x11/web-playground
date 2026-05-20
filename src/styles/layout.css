@@ -14,6 +14,15 @@
   position: relative;
   background: var(--scene-bg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#scene-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 #scene-root {

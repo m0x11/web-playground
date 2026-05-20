@@ -1,8 +1,8 @@
-// Right rail — properties of the active selection.
-// Animations panel arrives in Phase 5.
+// Right rail — properties + animations of the active selection.
 
 import { getComponent, withDefaults } from '../components/index.js';
 import { createControl, isVisible, watchersOf } from './controls/index.js';
+import { mountAnimationsPanel } from './animations-panel.js';
 
 export function mountRightRail(el, scene) {
   el.innerHTML = `
@@ -12,21 +12,22 @@ export function mountRightRail(el, scene) {
     </section>
     <section class="panel-section">
       <div class="panel-label">animations</div>
-      <div class="panel-placeholder">phase 5</div>
+      <div class="anim-body"></div>
     </section>
   `;
 
-  const body = el.querySelector('.props-body');
+  const propsBody = el.querySelector('.props-body');
+  const animBody = el.querySelector('.anim-body');
 
   function renderProps() {
     const id = scene.selectedId();
-    body.innerHTML = '';
+    propsBody.innerHTML = '';
 
     if (!id) {
       const ph = document.createElement('div');
       ph.className = 'panel-placeholder';
       ph.textContent = 'nothing selected';
-      body.appendChild(ph);
+      propsBody.appendChild(ph);
       return;
     }
 
@@ -58,7 +59,7 @@ export function mountRightRail(el, scene) {
       subhead.appendChild(del);
     }
 
-    body.appendChild(subhead);
+    propsBody.appendChild(subhead);
 
     for (const [propKey, propSchema] of Object.entries(schemaProps)) {
       if (!isVisible(propSchema, fullProps)) continue;
@@ -69,7 +70,7 @@ export function mountRightRail(el, scene) {
         scene.updateProps(id, { [propKey]: v });
         if (willChangeVisibility) renderProps();
       });
-      body.appendChild(control);
+      propsBody.appendChild(control);
     }
   }
 
@@ -77,4 +78,6 @@ export function mountRightRail(el, scene) {
   scene.on('scene-loaded', renderProps);
   scene.on('scene-tree-changed', renderProps);
   renderProps();
+
+  mountAnimationsPanel(animBody, scene);
 }

@@ -137,3 +137,95 @@
   color: var(--text-on-dark);
   border-color: var(--accent-warn);
 }
+
+/* Animations panel ────────────────────────────────────────────── */
+
+.anim-add-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+.anim-add-row select.control__input {
+  flex: 1;
+  min-width: 0;
+}
+.anim-add-row .anim-add-btn {
+  /* override picker-btn's width:100% — in this flex row the button only needs to fit its label */
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.anim-row {
+  border: 1px solid var(--border);
+  background: var(--panel-bg-pure);
+  margin: 8px 0;
+  padding: 8px 10px;
+}
+
+.anim-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: var(--fs-base);
+  color: var(--accent);
+}
+
+.anim-row__title {
+  font-weight: bold;
+  letter-spacing: 0.02em;
+}
+
+.anim-row__delete {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  line-height: 1.4;
+  cursor: pointer;
+  border-radius: 0;
+}
+.anim-row__delete:hover {
+  background: var(--accent-warn);
+  color: var(--text-on-dark);
+  border-color: var(--accent-warn);
+}
+
+.anim-row__line {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+}
+
+.anim-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.anim-field__label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  min-width: 32px;
+}
+
+.anim-field__input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  padding: 2px 5px;
+}
+
+.anim-field__unit {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}

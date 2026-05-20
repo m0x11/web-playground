@@ -1,0 +1,107 @@
+/* Bottom-of-preview timeline bar. Light surface matching the rails. */
+
+#timeline-bar {
+  flex-shrink: 0;
+  height: 56px;
+  background: var(--panel-bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  color: var(--text);
+}
+
+.timeline-play {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--text-on-dark);
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.timeline-play:hover {
+  background: var(--scene-bg-deep);
+  border-color: var(--scene-bg-deep);
+}
+
+.timeline-time {
+  color: var(--accent);
+  font-size: var(--fs-base);
+  min-width: 110px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-scrubber {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline-scrubber::-webkit-slider-runnable-track {
+  background: var(--border);
+  height: 3px;
+}
+.timeline-scrubber::-moz-range-track {
+  background: var(--border);
+  height: 3px;
+}
+.timeline-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--accent);
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border: none;
+  cursor: pointer;
+}
+.timeline-scrubber::-moz-range-thumb {
+  background: var(--accent);
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.timeline-duration {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-duration input {
+  width: 50px;
+  background: var(--panel-bg-pure);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: 2px 4px;
+  border-radius: 0;
+}
+.timeline-duration input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
