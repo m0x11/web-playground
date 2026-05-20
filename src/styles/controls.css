@@ -1,0 +1,97 @@
+/* Form controls inside the side rails. Matching sdf-playground's compact
+   instrument-panel inputs: light backgrounds, cobalt accents, sharp edges. */
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+.control__label {
+  min-width: 80px;
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+.control__value {
+  min-width: 50px;
+  color: var(--accent);
+  text-align: right;
+  font-size: var(--fs-base);
+}
+
+.control__input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  border: 1px solid var(--border);
+  background: var(--panel-bg-pure);
+  color: var(--text);
+  border-radius: 0;
+  padding: 3px 6px;
+}
+
+.control__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Range slider */
+.control input[type="range"].control__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+}
+.control input[type="range"].control__input::-webkit-slider-runnable-track {
+  background: var(--border);
+  height: 2px;
+}
+.control input[type="range"].control__input::-moz-range-track {
+  background: var(--border);
+  height: 2px;
+}
+.control input[type="range"].control__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--accent);
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border: none;
+  cursor: pointer;
+}
+.control input[type="range"].control__input::-moz-range-thumb {
+  background: var(--accent);
+  width: 12px;
+  height: 12px;
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* Select dropdown */
+.control select.control__input {
+  flex: 1;
+  cursor: pointer;
+}
+
+/* Subhead above prop controls — names the selected component */
+.props-subhead {
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.props-subhead .props-subhead__id {
+  color: var(--text-faint);
+  margin-left: 8px;
+}

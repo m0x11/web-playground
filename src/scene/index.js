@@ -1,8 +1,8 @@
 // Scene runtime.
 //
-// The single source of truth for "what time it is in the scene" and "what's in
-// the scene." Drives the renderer; same code path is used by the GUI (live
-// editing) and by the Playwright export driver (frame-by-frame at 4K30).
+// The single source of truth for "what time it is in the scene" and "what's
+// in the scene." Drives the renderer; same code path is used by the GUI
+// (live editing) and by the Playwright export driver (frame-by-frame at 4K30).
 //
 // See ARCHITECTURE.md → "Scene/GUI separation contract" and RECORDING.md.
 //
@@ -11,7 +11,15 @@
 //   - No setTimeout / setInterval / performance.now() in animation paths.
 //   - All animated values derive from the timeline's current `t`.
 
-const EVENTS = ['scene-loaded', 'time-changed', 'play-state-changed'];
+import { getComponent, withDefaults } from '../components/index.js';
+
+const EVENTS = [
+  'scene-loaded',
+  'time-changed',
+  'play-state-changed',
+  'selection-changed',
+  'node-updated',
+];
 
 export function createScene({ renderer }) {
   const listeners = Object.fromEntries(EVENTS.map(name => [name, new Set()]));
@@ -21,12 +29,29 @@ export function createScene({ renderer }) {
     time: 0,
     playing: false,
     duration: 0,
-    size: { w: null, h: null }, // null = use container size
+    size: { w: null, h: null },
     guiHidden: false,
+    selectedId: null,
   };
 
   function emit(name, payload) {
     for (const fn of listeners[name]) fn(payload);
+  }
+
+  // ── tree helpers ────────────────────────────────────────────────────────
+
+  function findNode(node, id) {
+    if (!node) return null;
+    if (node.id === id) return node;
+    for (const child of node.children ?? []) {
+      const found = findNode(child, id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function fullPropsFor(node) {
+    return withDefaults(getComponent(node.component).schema, node.props);
   }
 
   // ── public API ──────────────────────────────────────────────────────────
@@ -37,11 +62,13 @@ export function createScene({ renderer }) {
     renderer.mount(json);
     emit('scene-loaded', json);
     setTime(0);
+    // Default selection: root node.
+    if (json?.root?.id) select(json.root.id);
   }
 
   function setTime(t) {
     state.time = t;
-    // TODO Phase 5: walk animations array, compute per-property values, apply.
+    // TODO Phase 5: evaluate animations and patch animated props.
     renderer.update(t);
     emit('time-changed', t);
   }
@@ -50,7 +77,6 @@ export function createScene({ renderer }) {
     if (state.playing) return;
     state.playing = true;
     emit('play-state-changed', true);
-    // TODO Phase 5: drive a single rAF loop that calls setTime().
   }
 
   function pause() {
@@ -63,15 +89,10 @@ export function createScene({ renderer }) {
     return state.duration;
   }
 
-  // Resolves once every asset declared by the current scene has loaded.
-  // Phase 0: nothing to wait for; resolve next tick.
   function ready() {
     return Promise.resolve();
   }
 
-  // Resolves after the next paint completes. Used by the export driver between
-  // setTime() and screenshot(). Double-rAF because the browser may schedule
-  // paint between the first and second callback.
   function framePainted() {
     return new Promise(resolve => {
       requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -94,20 +115,50 @@ export function createScene({ renderer }) {
     return () => listeners[event].delete(fn);
   }
 
-  // For debugging / inspection from the console.
+  // ── selection + tree access ────────────────────────────────────────────
+
+  function select(id) {
+    if (state.selectedId === id) return;
+    state.selectedId = id;
+    emit('selection-changed', id);
+  }
+
+  function selectedId() {
+    return state.selectedId;
+  }
+
+  function getNode(id) {
+    return findNode(state.sceneJson?.root, id);
+  }
+
+  function getRootNode() {
+    return state.sceneJson?.root ?? null;
+  }
+
+  function getFullProps(id) {
+    const node = getNode(id);
+    return node ? fullPropsFor(node) : null;
+  }
+
+  // ── prop mutation ──────────────────────────────────────────────────────
+
+  function updateProps(id, partialProps) {
+    const node = getNode(id);
+    if (!node) {
+      console.warn(`scene.updateProps: unknown id "${id}"`);
+      return;
+    }
+    node.props = { ...(node.props ?? {}), ...partialProps };
+    renderer.patch(id, fullPropsFor(node));
+    emit('node-updated', { id, props: node.props });
+  }
+
   function _state() { return state; }
 
   return {
-    loadScene,
-    setTime,
-    play,
-    pause,
-    duration,
-    ready,
-    framePainted,
-    setSize,
-    hideGUI,
-    on,
+    loadScene, setTime, play, pause, duration,
+    ready, framePainted, setSize, hideGUI, on,
+    select, selectedId, getNode, getRootNode, getFullProps, updateProps,
     _state,
   };
 }

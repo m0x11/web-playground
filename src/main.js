@@ -14,15 +14,15 @@ const scene = createScene({ renderer });
 mountLeftRail(document.getElementById('left-rail'), scene);
 mountRightRail(document.getElementById('right-rail'), scene);
 
-// Phase 0 placeholder scene — proves scene → renderer → DOM pipeline.
+// Phase 1 demo scene — a single Grid. Adjust its props from the right rail.
 scene.loadScene({
   version: 1,
-  name: 'phase-0-placeholder',
+  name: 'phase-1-grid',
   duration: 0,
   root: {
     id: 'root',
-    component: 'Placeholder',
-    props: { text: 'phase 0 · scene runtime online' },
+    component: 'Grid',
+    props: { mode: 'columns', columns: 3, gap: 16, padding: 24 },
     children: [],
   },
   animations: [],

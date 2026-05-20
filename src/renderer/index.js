@@ -1,27 +1,38 @@
 // Renderer.
 //
 // Turns a scene JSON tree into DOM under #scene-root and keeps it in sync.
-// Key contract (ARCHITECTURE.md): node identity is stable across prop edits —
-// every scene tree node gets a persistent DOM node keyed by its `id`. Prop
+// Key contract: node identity is stable across prop edits — every scene tree
+// node gets a persistent DOM node + component instance, keyed by `id`. Prop
 // updates patch in place. Never tear down + recreate.
-//
-// Phase 0: just mount one hardcoded element type. Component registry +
-// stable-identity patching land in Phase 1.
+
+import { getComponent, withDefaults } from '../components/index.js';
 
 const root = document.getElementById('scene-root');
-
-const nodes = new Map(); // id → DOM element
+const nodes = new Map(); // id → { el, instance, componentName, childCount }
 
 export const renderer = {
   mount(sceneJson) {
-    root.innerHTML = '';
+    // Tear down what's there.
+    for (const { instance } of nodes.values()) instance.unmount?.();
     nodes.clear();
+    root.innerHTML = '';
     if (!sceneJson?.root) return;
     mountNode(sceneJson.root, root);
   },
 
+  // Apply new props to an existing mounted node. No remount; preserves
+  // animations, focus, scroll, child DOM, etc.
+  patch(id, fullProps) {
+    const entry = nodes.get(id);
+    if (!entry) {
+      console.warn(`renderer.patch: unknown id "${id}"`);
+      return;
+    }
+    entry.instance.patch(fullProps, { childCount: entry.childCount });
+  },
+
   update(_t) {
-    // Phase 0: nothing animated yet. Phase 5 will apply property registry.
+    // Phase 5: timeline will call this and we'll apply animated property values.
   },
 
   setSize(w, h) {
@@ -34,35 +45,26 @@ export const renderer = {
     }
   },
 
-  // Lookup hook used by the animation layer to find a DOM node by scene id.
   getEl(id) {
-    return nodes.get(id) ?? null;
+    return nodes.get(id)?.el ?? null;
   },
 };
 
 function mountNode(node, parentEl) {
+  const Comp = getComponent(node.component);
   const el = document.createElement('div');
   el.dataset.sceneId = node.id;
   el.className = 'scene-node';
-
-  // Phase 0: hardcoded "Hello" component for the only registered type.
-  if (node.component === 'Placeholder') {
-    el.textContent = node.props?.text ?? '(placeholder)';
-    Object.assign(el.style, {
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      color: 'var(--accent)',
-      fontSize: '20px',
-      letterSpacing: '0.04em',
-      opacity: '0.7',
-    });
-  }
-
   parentEl.appendChild(el);
-  nodes.set(node.id, el);
 
+  const fullProps = withDefaults(Comp.schema, node.props);
+  const childCount = (node.children ?? []).length;
+  const instance = Comp.mount(el, fullProps, { node, childCount });
+
+  nodes.set(node.id, { el, instance, componentName: node.component, childCount });
+
+  // Children mount inside the parent component's element. Components are
+  // responsible for any nested layout container of their own.
   for (const child of node.children ?? []) {
     mountNode(child, el);
   }

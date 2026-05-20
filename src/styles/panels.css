@@ -35,3 +35,41 @@
   font-size: var(--fs-lg);
   line-height: 1.5;
 }
+
+/* Scene-tree rows in the left rail. */
+.tree {
+  margin: -4px -16px;  /* extend full panel width past section padding */
+}
+
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: var(--fs-base);
+  color: var(--text);
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--panel-bg-alt);
+}
+
+.tree-row--selected {
+  background: var(--accent);
+  color: var(--text-on-dark);
+}
+
+.tree-row--selected .tree-row__id {
+  color: var(--text-on-dark-muted);
+}
+
+.tree-row__name {
+  font-weight: bold;
+}
+
+.tree-row__id {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
