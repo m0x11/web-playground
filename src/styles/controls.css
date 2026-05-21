@@ -380,3 +380,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* String-list control (Text cycle lines) */
+.control--string-list {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.string-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.string-list__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.string-list__input {
+  flex: 1;
+  min-width: 0;
+}

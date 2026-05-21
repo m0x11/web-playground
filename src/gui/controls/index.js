@@ -7,6 +7,7 @@ import { createTextInput } from './text-input.js';
 import { createColorPicker } from './color.js';
 import { createAssetControl } from './asset.js';
 import { createAssetListControl } from './asset-list.js';
+import { createStringListControl } from './string-list.js';
 import { createCheckbox } from './checkbox.js';
 
 export function createControl(propKey, propSchema, currentValue, onChange) {
@@ -55,6 +56,12 @@ export function createControl(propKey, propSchema, currentValue, onChange) {
         label,
         value: currentValue,
         accept: propSchema.accept ?? '',
+        onChange,
+      });
+    case 'string-list':
+      return createStringListControl({
+        label,
+        value: currentValue,
         onChange,
       });
     case 'boolean':
