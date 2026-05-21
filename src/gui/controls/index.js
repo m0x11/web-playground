@@ -5,6 +5,8 @@ import { createSlider } from './slider.js';
 import { createSelect } from './select.js';
 import { createTextInput } from './text-input.js';
 import { createColorPicker } from './color.js';
+import { createAssetControl } from './asset.js';
+import { createAssetListControl } from './asset-list.js';
 
 export function createControl(propKey, propSchema, currentValue, onChange) {
   const label = propSchema.label ?? propKey;
@@ -38,6 +40,20 @@ export function createControl(propKey, propSchema, currentValue, onChange) {
       return createColorPicker({
         label,
         value: currentValue,
+        onChange,
+      });
+    case 'asset':
+      return createAssetControl({
+        label,
+        value: currentValue,
+        accept: propSchema.accept ?? '',
+        onChange,
+      });
+    case 'asset-list':
+      return createAssetListControl({
+        label,
+        value: currentValue,
+        accept: propSchema.accept ?? '',
         onChange,
       });
     default: {

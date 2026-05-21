@@ -13,6 +13,7 @@
 
 import { getComponent, withDefaults } from '../components/index.js';
 import { createTimeline } from '../animation/timeline.js';
+import { allLoaded, allSeeked } from '../media/readiness.js';
 
 const EVENTS = [
   'scene-loaded',
@@ -135,7 +136,8 @@ export function createScene({ renderer }) {
 
   function setTime(t) {
     state.time = t;
-    timeline.setTime(t);
+    timeline.setTime(t);       // animation tweens
+    renderer.update(t);        // time-driven components (Media cycle/video)
     emit('time-changed', t);
   }
 
@@ -158,14 +160,19 @@ export function createScene({ renderer }) {
     return Math.max(state.duration, timeline.computeDuration());
   }
 
+  // Resolves once every media asset declared by the current scene has loaded
+  // (images decoded, video metadata available). Awaited by the export driver
+  // before frame 0.
   function ready() {
-    return Promise.resolve();
+    return allLoaded();
   }
 
+  // Resolves after the next paint, AND after any in-flight video seeks have
+  // settled. The export driver awaits this between setTime() and screenshot().
   function framePainted() {
-    return new Promise(resolve => {
+    return allSeeked().then(() => new Promise(resolve => {
       requestAnimationFrame(() => requestAnimationFrame(resolve));
-    });
+    }));
   }
 
   function setSize(w, h) {

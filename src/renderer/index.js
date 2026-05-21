@@ -106,8 +106,13 @@ export const renderer = {
   // Force a re-fit (e.g. after toggling export mode).
   refit() { fitCanvas(); },
 
-  update(_t) {
-    // Phase 5: animation tick.
+  // Per-frame tick. Animations are applied separately (via the timeline);
+  // this notifies any component that declared an onTime(t) hook — time-driven
+  // components like Media in cycle/video mode.
+  update(t) {
+    for (const { instance } of nodes.values()) {
+      instance.onTime?.(t);
+    }
   },
 
   setSize(w, h) {

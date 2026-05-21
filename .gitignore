@@ -9,3 +9,6 @@ exports/
 # Local env
 .env
 .env.local
+
+# Imported media
+assets/

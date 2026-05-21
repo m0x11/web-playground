@@ -1,24 +1,29 @@
-// Vite plugin: in-GUI export endpoint.
+// Vite plugin: local dev API.
 //
-// Mounts /__export — POST receives { scene, options }, streams NDJSON
-// progress events back, ends with a final 'done' or 'error' event. The
-// client (src/gui/export-modal.js) reads it via fetch + ReadableStream.
+// /__export — POST { scene, options }, streams NDJSON progress events back.
+// /__import — POST raw file bytes (+ X-Filename header), content-hashes and
+//             copies into assets/, returns { path }.
+// /__reveal — POST { path } → `open -R <path>` to show a file in Finder.
 //
-// Also mounts /__reveal — POST { path } → spawn `open -R <path>` to show
-// the file in Finder. Personal-tool QoL, no security gating beyond
-// confining paths to the project root.
+// Personal-tool endpoints; path handling is confined to the project root.
 
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, extname, basename, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { exportScene, PROJECT_ROOT, AbortError } from './exporter.js';
 
 export function exportPlugin() {
   return {
-    name: 'web-playground-export',
+    name: 'web-playground-dev-api',
     configureServer(server) {
       server.middlewares.use('/__export', async (req, res, next) => {
         if (req.method !== 'POST') return next();
         await handleExport(req, res, server);
+      });
+      server.middlewares.use('/__import', async (req, res, next) => {
+        if (req.method !== 'POST') return next();
+        await handleImport(req, res);
       });
       server.middlewares.use('/__reveal', async (req, res, next) => {
         if (req.method !== 'POST') return next();
@@ -26,6 +31,28 @@ export function exportPlugin() {
       });
     },
   };
+}
+
+async function handleImport(req, res) {
+  try {
+    const rawName = String(req.headers['x-filename'] || 'asset');
+    const bytes = await readBody(req);
+    if (bytes.length === 0) {
+      res.writeHead(400); res.end('empty file'); return;
+    }
+    const hash = createHash('sha1').update(bytes).digest('hex').slice(0, 8);
+    const ext = extname(rawName).toLowerCase();
+    const base = basename(rawName, ext).replace(/[^a-z0-9_-]+/gi, '-').slice(0, 40) || 'asset';
+    const name = `${base}-${hash}${ext}`;
+    const assetsDir = join(PROJECT_ROOT, 'assets');
+    mkdirSync(assetsDir, { recursive: true });
+    writeFileSync(join(assetsDir, name), bytes);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ path: `assets/${name}` }));
+  } catch (err) {
+    res.writeHead(500);
+    res.end(JSON.stringify({ error: err.message }));
+  }
 }
 
 async function handleExport(req, res, server) {

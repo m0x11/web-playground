@@ -5,7 +5,7 @@
 //
 // See SCENE_FORMAT.md for the v1 schema and validation rules.
 
-import { getComponent, COMPONENT_REGISTRY } from '../components/index.js';
+import { getComponent, isKnownComponent } from '../components/index.js';
 
 const SCENE_FILE_TYPES = [
   { description: 'Scene', accept: { 'application/json': ['.json'] } },
@@ -143,7 +143,7 @@ function validateNode(node, seenIds, path) {
   if (typeof node.component !== 'string' || !node.component) {
     throw new Error(`Invalid node "${node.id}": missing component`);
   }
-  if (!(node.component in COMPONENT_REGISTRY)) {
+  if (!isKnownComponent(node.component)) {
     throw new Error(`Unknown component "${node.component}" in node "${node.id}" — not in registry`);
   }
   // Lookup to enforce schema accessibility (also surfaces any registry bugs).
