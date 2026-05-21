@@ -24,6 +24,7 @@ const EVENTS = [
   'scene-tree-changed',
   'scene-name-changed',
   'animations-changed',
+  'animation-updated',
   'scene-canvas-changed',
   'scene-background-changed',
 ];
@@ -196,8 +197,23 @@ export function createScene({ renderer }) {
   function playing() { return state.playing; }
   function time() { return state.time; }
 
+  // Effective duration — the longest of the explicit duration, animation
+  // spans, and intrinsic component durations (cycles).
   function duration() {
     return Math.max(state.duration, timeline.computeDuration(), intrinsicDuration());
+  }
+
+  // The explicitly-set scene duration (what the timeline-bar field shows).
+  function getDuration() {
+    return state.duration;
+  }
+
+  // Set the explicit scene duration. Needed for scenes with no animations or
+  // cycles (e.g. video-only) so the timeline has a length to play.
+  function setDuration(seconds) {
+    const v = Math.max(0, seconds || 0);
+    state.duration = v;
+    if (state.sceneJson) state.sceneJson.duration = v;
   }
 
   // Resolves once every media asset declared by the current scene has loaded
@@ -462,7 +478,9 @@ export function createScene({ renderer }) {
     Object.assign(anim, partial);
     timeline.update(id, partial);
     setTime(state.time);
-    emit('animations-changed');
+    // Distinct from 'animations-changed' (add/remove): a value edit must NOT
+    // rebuild the animations panel, or inputs lose focus mid-keystroke.
+    emit('animation-updated', { id });
   }
 
   function listAnimations() {
@@ -541,7 +559,8 @@ export function createScene({ renderer }) {
   function _state() { return state; }
 
   return {
-    loadScene, setTime, play, pause, playing, time, duration,
+    loadScene, setTime, play, pause, playing, time,
+    duration, getDuration, setDuration,
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps, getParentNode,
     updateProps, updateLayout, addNode, removeNode, duplicateNode,

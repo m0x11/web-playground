@@ -47,7 +47,7 @@ export function mountTimelineBar(host, scene) {
       scrub.value = String(Math.min(t, dur));
     }
     if (document.activeElement !== durInput) {
-      durInput.value = String(scene._state().sceneJson?.duration ?? 0);
+      durInput.value = String(scene.getDuration());
     }
     playBtn.textContent = scene.playing() ? '❚❚' : '▶';
   }
@@ -67,9 +67,7 @@ export function mountTimelineBar(host, scene) {
   });
 
   durInput.addEventListener('change', () => {
-    const v = Math.max(0, Number(durInput.value) || 0);
-    const json = scene._state().sceneJson;
-    if (json) json.duration = v;
+    scene.setDuration(Number(durInput.value) || 0);
     refresh();
   });
 
@@ -126,6 +124,7 @@ export function mountTimelineBar(host, scene) {
   scene.on('time-changed', refresh);
   scene.on('scene-loaded', refresh);
   scene.on('animations-changed', refresh);
+  scene.on('animation-updated', refresh);
   // Tree / prop changes can shift the cycle-derived duration.
   scene.on('scene-tree-changed', refresh);
   scene.on('node-updated', refresh);
