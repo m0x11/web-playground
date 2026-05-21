@@ -52,6 +52,15 @@ export const schema = {
       type: 'enum', label: 'Fit',
       options: ['cover', 'contain', 'fill', 'none'], default: 'cover',
     },
+    zoom: {
+      type: 'number', label: 'Zoom', min: 0.1, max: 8, step: 0.05, default: 1,
+    },
+    offsetX: {
+      type: 'number', label: 'Pan X', min: -100, max: 100, step: 1, unit: '%', default: 0,
+    },
+    offsetY: {
+      type: 'number', label: 'Pan Y', min: -100, max: 100, step: 1, unit: '%', default: 0,
+    },
   },
 };
 
@@ -139,6 +148,18 @@ export function mount(el, props, _ctx) {
       rebuildCycle(p);
       if (cycleImgs.length > 0) show(cycleLayer, true);
       else showPlaceholder('no images');
+    }
+
+    applyTransform(p);
+  }
+
+  // Zoom + pan the media within its cell. The cell has overflow:hidden, so
+  // zoom > 1 crops. Applied to all three element types uniformly.
+  function applyTransform(p) {
+    const tf = `translate(${p.offsetX ?? 0}%, ${p.offsetY ?? 0}%) scale(${p.zoom ?? 1})`;
+    for (const node of [imgEl, videoEl, cycleLayer]) {
+      node.style.transform = tf;
+      node.style.transformOrigin = 'center center';
     }
   }
 
