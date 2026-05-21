@@ -7,6 +7,7 @@ import { createTextInput } from './text-input.js';
 import { createColorPicker } from './color.js';
 import { createAssetControl } from './asset.js';
 import { createAssetListControl } from './asset-list.js';
+import { createCheckbox } from './checkbox.js';
 
 export function createControl(propKey, propSchema, currentValue, onChange) {
   const label = propSchema.label ?? propKey;
@@ -54,6 +55,12 @@ export function createControl(propKey, propSchema, currentValue, onChange) {
         label,
         value: currentValue,
         accept: propSchema.accept ?? '',
+        onChange,
+      });
+    case 'boolean':
+      return createCheckbox({
+        label,
+        value: currentValue,
         onChange,
       });
     default: {

@@ -59,7 +59,7 @@ export const renderer = {
       return;
     }
     entry.lastProps = fullProps;
-    entry.instance.patch(fullProps, { childCount: entry.childCount });
+    entry.instance.patch(fullProps, { childCount: entry.childCount, node: entry.node });
   },
 
   addChild(parentId, node, newChildCount) {
@@ -70,7 +70,7 @@ export const renderer = {
     }
     mountNode(node, parent.childRoot);
     parent.childCount = newChildCount;
-    parent.instance.patch(parent.lastProps, { childCount: newChildCount });
+    parent.instance.patch(parent.lastProps, { childCount: newChildCount, node: parent.node });
   },
 
   removeNode(id) {
@@ -92,7 +92,7 @@ export const renderer = {
     const entry = nodes.get(id);
     if (!entry) return;
     entry.childCount = newChildCount;
-    entry.instance.patch(entry.lastProps, { childCount: newChildCount });
+    entry.instance.patch(entry.lastProps, { childCount: newChildCount, node: entry.node });
   },
 
   // Sets the design-space dimensions and re-fits to the stage. Called by
@@ -146,12 +146,19 @@ function mountNode(node, parentEl) {
   const childRoot = instance.childRoot ?? el;
 
   nodes.set(node.id, {
-    el, instance, childRoot, childCount,
+    el, instance, childRoot, childCount, node,
     componentName: node.component,
     lastProps: fullProps,
   });
 
   for (const child of node.children ?? []) {
     mountNode(child, childRoot);
+  }
+
+  // Children's DOM now exists — re-patch layout-owning components (e.g. Grid)
+  // so they can style child cells. The component's mount() ran before its
+  // children were created, so the first styling pass had nothing to find.
+  if ((node.children ?? []).length > 0) {
+    instance.patch(fullProps, { childCount, node });
   }
 }

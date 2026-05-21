@@ -224,6 +224,25 @@ export function createScene({ renderer }) {
     emit('node-updated', { id, props: node.props });
   }
 
+  // Per-node layout (cell width / aspect within a freeform parent). Stored on
+  // node.layout; the layout-owning parent reads it. Re-patch the parent so it
+  // re-applies child cell styling.
+  function updateLayout(id, partialLayout) {
+    const node = getNode(id);
+    if (!node) {
+      console.warn(`scene.updateLayout: unknown id "${id}"`);
+      return;
+    }
+    node.layout = { ...(node.layout ?? {}), ...partialLayout };
+    const parent = findParent(state.sceneJson?.root, id);
+    if (parent) renderer.patch(parent.id, fullPropsFor(parent));
+    emit('node-updated', { id });
+  }
+
+  function getParentNode(id) {
+    return findParent(state.sceneJson?.root, id);
+  }
+
   // ── tree mutation ───────────────────────────────────────────────────────
 
   function addNode(parentId, componentName, propsOverride = {}) {
@@ -361,8 +380,8 @@ export function createScene({ renderer }) {
   return {
     loadScene, setTime, play, pause, playing, time, duration,
     ready, framePainted, setSize, hideGUI, on,
-    select, selectedId, getNode, getRootNode, getFullProps,
-    updateProps, addNode, removeNode,
+    select, selectedId, getNode, getRootNode, getFullProps, getParentNode,
+    updateProps, updateLayout, addNode, removeNode,
     addAnimation, removeAnimation, updateAnimation,
     listAnimations, listAnimationsForTarget,
     serialize, setName, getName,
