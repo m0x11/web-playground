@@ -66,6 +66,7 @@ export function createScene({ renderer }) {
     size: { w: null, h: null },
     guiHidden: false,
     selectedId: null,
+    animatedNodes: new Set(),  // nodes currently under component-prop animation
   };
 
   function emit(name, payload) {
@@ -153,6 +154,7 @@ export function createScene({ renderer }) {
     renderer.setCanvasSize(px.width, px.height);
     renderer.setBackground(state.sceneJson.background);
     timeline.setAnimations(json?.animations ?? []);
+    state.animatedNodes = new Set();
     emit('scene-loaded', json);
     setTime(0);
     if (json?.root?.id) select(json.root.id);
@@ -160,8 +162,22 @@ export function createScene({ renderer }) {
 
   function setTime(t) {
     state.time = t;
-    timeline.setTime(t);       // animation tweens
-    renderer.update(t);        // time-driven components (Media cycle/video)
+    timeline.setTime(t);                            // CSS-property tweens
+
+    // Component-prop tweens — patch the animated value onto the component.
+    const compVals = timeline.componentValuesAt(t);
+    const animatedNow = new Set();
+    for (const [target, overrides] of compVals) {
+      renderer.patchAnimated(target, overrides);
+      animatedNow.add(target);
+    }
+    // Reset any component animated last frame but no longer touched.
+    for (const target of state.animatedNodes) {
+      if (!animatedNow.has(target)) renderer.patchAnimated(target, null);
+    }
+    state.animatedNodes = animatedNow;
+
+    renderer.update(t);                             // time-driven components
     emit('time-changed', t);
   }
 
@@ -457,6 +473,24 @@ export function createScene({ renderer }) {
     return (state.sceneJson?.animations ?? []).filter(a => a.target === targetId);
   }
 
+  // Copy a tween onto every other child of the same parent grid.
+  function applyAnimationToSiblings(tweenId) {
+    const anims = state.sceneJson?.animations;
+    if (!anims) return;
+    const tween = anims.find(a => a.id === tweenId);
+    if (!tween) return;
+    const parent = findParent(state.sceneJson.root, tween.target);
+    if (!parent) return;
+    for (const sibling of parent.children ?? []) {
+      if (sibling.id === tween.target) continue;
+      const copy = { ...tween, id: generateAnimationId(), target: sibling.id };
+      anims.push(copy);
+      timeline.add(copy);
+    }
+    setTime(state.time);
+    emit('animations-changed');
+  }
+
   // ── persistence helpers ─────────────────────────────────────────────────
 
   function serialize() {
@@ -513,7 +547,7 @@ export function createScene({ renderer }) {
     updateProps, updateLayout, addNode, removeNode, duplicateNode,
     moveNode, isAncestor,
     addAnimation, removeAnimation, updateAnimation,
-    listAnimations, listAnimationsForTarget,
+    listAnimations, listAnimationsForTarget, applyAnimationToSiblings,
     serialize, setName, getName,
     getCanvas, setCanvas, getCanvasPixels,
     getBackground, setBackground,

@@ -1,11 +1,14 @@
 // Right-rail Animations panel.
 //
-// For the currently-selected node, lists its tweens and lets you add / edit /
-// delete them. + Add button + property dropdown adds a tween with sensible
-// defaults for that property.
+// For the selected node, lists its tweens and lets you add / edit / delete
+// them. The property dropdown offers transform properties (applied to the
+// scene-node) plus the component's own numeric/colour props — animating those
+// patches the component each frame (e.g. Media zoom). "to all" copies a tween
+// onto every sibling cell in the same grid.
 
 import { PROPERTIES, PROPERTY_NAMES } from '../animation/property-registry.js';
 import { EASING_NAMES } from '../animation/easing.js';
+import { getComponent } from '../components/index.js';
 
 const DEFAULTS_BY_PROPERTY = {
   opacity:  { from: 0,        to: 1,    start: 0, duration: 1.0, easing: 'easeOutCubic' },
@@ -44,17 +47,40 @@ export function mountAnimationsPanel(host, scene) {
     }
   }
 
+  // Numeric / colour component props that don't shadow a transform property.
+  function componentProps(node) {
+    const schemaProps = getComponent(node.component).schema.props ?? {};
+    return Object.entries(schemaProps)
+      .filter(([name, p]) => (p.type === 'number' || p.type === 'color') && !(name in PROPERTIES))
+      .map(([name]) => name);
+  }
+
+  function option(name) {
+    const o = document.createElement('option');
+    o.value = name;
+    o.textContent = name;
+    return o;
+  }
+
   function renderAddRow(selectedId) {
     const row = document.createElement('div');
     row.className = 'anim-add-row';
+    const node = scene.getNode(selectedId);
 
     const select = document.createElement('select');
     select.className = 'control__input';
-    for (const name of PROPERTY_NAMES) {
-      const o = document.createElement('option');
-      o.value = name;
-      o.textContent = name;
-      select.appendChild(o);
+
+    const tg = document.createElement('optgroup');
+    tg.label = 'transform';
+    for (const name of PROPERTY_NAMES) tg.appendChild(option(name));
+    select.appendChild(tg);
+
+    const compProps = node ? componentProps(node) : [];
+    if (compProps.length) {
+      const cg = document.createElement('optgroup');
+      cg.label = `${getComponent(node.component).schema.name.toLowerCase()} props`;
+      for (const name of compProps) cg.appendChild(option(name));
+      select.appendChild(cg);
     }
 
     const btn = document.createElement('button');
@@ -62,37 +88,59 @@ export function mountAnimationsPanel(host, scene) {
     btn.textContent = '+ add tween';
     btn.addEventListener('click', () => {
       const prop = select.value;
-      const defaults = DEFAULTS_BY_PROPERTY[prop] ?? {
-        from: 0, to: 1, start: 0, duration: 1.0, easing: 'linear',
-      };
-      scene.addAnimation({
-        target: selectedId,
-        property: prop,
-        ...defaults,
-      });
+      if (prop in DEFAULTS_BY_PROPERTY) {
+        scene.addAnimation({ target: selectedId, property: prop, ...DEFAULTS_BY_PROPERTY[prop] });
+      } else {
+        // Component prop — seed from/to with its current value (a no-op tween
+        // the user then edits) so adding it doesn't jump the scene.
+        const cur = scene.getFullProps(selectedId)?.[prop] ?? 0;
+        scene.addAnimation({
+          target: selectedId, property: prop,
+          from: cur, to: cur, start: 0, duration: 1.0, easing: 'easeOutCubic',
+        });
+      }
     });
 
     row.append(select, btn);
     return row;
   }
 
+  // Editor hints for a tween's value fields — from the registry, or the
+  // target component's schema for component props.
+  function editorMetaFor(tween) {
+    if (PROPERTIES[tween.property]) return PROPERTIES[tween.property].editor;
+    const node = scene.getNode(tween.target);
+    const sp = node && getComponent(node.component).schema.props?.[tween.property];
+    if (sp?.type === 'color') return { kind: 'color' };
+    if (sp) return { kind: 'number', min: sp.min, max: sp.max, step: sp.step, unit: sp.unit };
+    return { kind: 'number' };
+  }
+
   function renderTweenRow(tween) {
-    const meta = PROPERTIES[tween.property];
+    const meta = { editor: editorMetaFor(tween) };
     const row = document.createElement('div');
     row.className = 'anim-row';
 
-    // Header: property name + delete
+    // Header: property name + "to all" + delete
     const head = document.createElement('div');
     head.className = 'anim-row__head';
     const title = document.createElement('span');
     title.className = 'anim-row__title';
     title.textContent = tween.property;
+
+    const all = document.createElement('button');
+    all.className = 'anim-row__all';
+    all.textContent = 'to all';
+    all.title = 'copy this tween to every other cell in the same grid';
+    all.addEventListener('click', () => scene.applyAnimationToSiblings(tween.id));
+
     const del = document.createElement('button');
     del.className = 'anim-row__delete';
     del.textContent = '×';
     del.title = 'delete tween';
     del.addEventListener('click', () => scene.removeAnimation(tween.id));
-    head.append(title, del);
+
+    head.append(title, all, del);
     row.appendChild(head);
 
     // From / To

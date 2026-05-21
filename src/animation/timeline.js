@@ -7,7 +7,7 @@
 // at frame indices (Phase 8).
 
 import { tweenValueAt } from './tween.js';
-import { applyProperties, resetTransformState } from './property-registry.js';
+import { applyProperties, resetTransformState, PROPERTIES } from './property-registry.js';
 
 export function createTimeline({ getEl }) {
   let animations = [];
@@ -47,12 +47,15 @@ export function createTimeline({ getEl }) {
     return max;
   }
 
-  // Apply every animation at time `t`. Group by target so each element sees
-  // all of its property changes in one batch (essential for the transform
-  // composer: scale + rotation + x must merge into one `transform` string).
+  // Apply CSS-property tweens at time `t`, grouped by target so each element
+  // sees all its property changes in one batch (the transform composer needs
+  // scale + rotation + x together). Component-prop tweens (anything not in the
+  // property registry) are reported by componentValuesAt() instead — the scene
+  // patches those onto the component.
   function setTime(t) {
     const byTarget = new Map();
     for (const spec of animations) {
+      if (!(spec.property in PROPERTIES)) continue;
       const list = byTarget.get(spec.target) ?? [];
       list.push(spec);
       byTarget.set(spec.target, list);
@@ -69,9 +72,22 @@ export function createTimeline({ getEl }) {
     }
   }
 
+  // Non-CSS (component) property tweens at `t`, grouped by target →
+  // Map<targetId, { prop: value }>.
+  function componentValuesAt(t) {
+    const byTarget = new Map();
+    for (const spec of animations) {
+      if (spec.property in PROPERTIES) continue;
+      const m = byTarget.get(spec.target) ?? {};
+      m[spec.property] = tweenValueAt(spec, t);
+      byTarget.set(spec.target, m);
+    }
+    return byTarget;
+  }
+
   return {
     setAnimations, add, remove, update,
     list, listForTarget, computeDuration,
-    setTime,
+    setTime, componentValuesAt,
   };
 }

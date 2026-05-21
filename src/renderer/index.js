@@ -82,6 +82,16 @@ export const renderer = {
     parent.instance.patch(parent.lastProps, { childCount: newChildCount, node: parent.node });
   },
 
+  // Patch a component with animated prop overrides layered over its base
+  // props. Does NOT update entry.lastProps, so the base survives — pass
+  // overrides=null to reset the component to its base props.
+  patchAnimated(id, overrides) {
+    const entry = nodes.get(id);
+    if (!entry) return;
+    const props = overrides ? { ...entry.lastProps, ...overrides } : entry.lastProps;
+    entry.instance.patch(props, { childCount: entry.childCount, node: entry.node });
+  },
+
   removeNode(id) {
     const entry = nodes.get(id);
     if (!entry) return;

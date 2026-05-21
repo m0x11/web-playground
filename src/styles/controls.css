@@ -227,11 +227,13 @@
 }
 
 .anim-row__title {
+  flex: 1;
   font-weight: bold;
   letter-spacing: 0.02em;
 }
 
-.anim-row__delete {
+.anim-row__delete,
+.anim-row__all {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -242,10 +244,18 @@
   cursor: pointer;
   border-radius: 0;
 }
+.anim-row__all {
+  font-size: var(--fs-sm);
+}
 .anim-row__delete:hover {
   background: var(--accent-warn);
   color: var(--text-on-dark);
   border-color: var(--accent-warn);
+}
+.anim-row__all:hover {
+  background: var(--accent);
+  color: var(--text-on-dark);
+  border-color: var(--accent);
 }
 
 .anim-row__line {

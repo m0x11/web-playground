@@ -125,6 +125,10 @@ export function mount(el, props, ctx) {
 }
 
 function apply(el, frame, p, childCount, node) {
+  // Normalize columns to a positive integer — it may arrive fractional from
+  // an animation, and repeat()/span need integers.
+  p = { ...p, columns: Math.max(1, Math.round(p.columns ?? 1)) };
+
   Object.assign(el.style, {
     boxSizing: 'border-box',
     width: '100%', height: '100%',
