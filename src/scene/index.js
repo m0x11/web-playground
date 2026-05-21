@@ -359,6 +359,44 @@ export function createScene({ renderer }) {
     return clone.id;
   }
 
+  // True if descendantId is inside ancestorId's subtree (or is ancestorId).
+  function isAncestor(ancestorId, descendantId) {
+    const a = getNode(ancestorId);
+    return a ? collectIds(a).includes(descendantId) : false;
+  }
+
+  // Move a node to a new parent, inserted before `beforeId` (or appended if
+  // null). Handles both reordering within a parent and reparenting.
+  function moveNode(nodeId, newParentId, beforeId = null) {
+    const root = state.sceneJson?.root;
+    if (!root || root.id === nodeId) return;
+    const node = getNode(nodeId);
+    const newParent = getNode(newParentId);
+    const oldParent = findParent(root, nodeId);
+    if (!node || !newParent || !oldParent) return;
+    if (getComponent(newParent.component).schema.children === 'none') return;
+    if (isAncestor(nodeId, newParentId)) return;   // can't nest under itself
+
+    const oldIdx = oldParent.children.findIndex(c => c.id === nodeId);
+    if (oldIdx < 0) return;
+    oldParent.children.splice(oldIdx, 1);
+
+    newParent.children = newParent.children ?? [];
+    let insertIdx = newParent.children.length;
+    if (beforeId) {
+      const bi = newParent.children.findIndex(c => c.id === beforeId);
+      if (bi >= 0) insertIdx = bi;
+    }
+    newParent.children.splice(insertIdx, 0, node);
+
+    renderer.moveNode(nodeId, newParentId, beforeId);
+    renderer.refreshCtx(oldParent.id, oldParent.children.length);
+    if (newParentId !== oldParent.id) {
+      renderer.refreshCtx(newParentId, newParent.children.length);
+    }
+    emit('scene-tree-changed');
+  }
+
   function cloneSubtree(node, idMap, used) {
     const slug = node.component.toLowerCase();
     let n = 1;
@@ -459,6 +497,7 @@ export function createScene({ renderer }) {
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps, getParentNode,
     updateProps, updateLayout, addNode, removeNode, duplicateNode,
+    moveNode, isAncestor,
     addAnimation, removeAnimation, updateAnimation,
     listAnimations, listAnimationsForTarget,
     serialize, setName, getName,

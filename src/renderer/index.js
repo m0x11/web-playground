@@ -97,6 +97,17 @@ export const renderer = {
     entry.el.remove();
   },
 
+  // Relocate an already-mounted node's DOM (with its whole subtree intact)
+  // under a new parent. Component instances + animation state are preserved —
+  // it's a pure DOM move, not a remount.
+  moveNode(nodeId, newParentId, beforeId = null) {
+    const entry = nodes.get(nodeId);
+    const newParent = nodes.get(newParentId);
+    if (!entry || !newParent) return;
+    const ref = beforeId ? (nodes.get(beforeId)?.el ?? null) : null;
+    newParent.childRoot.insertBefore(entry.el, ref);
+  },
+
   refreshCtx(id, newChildCount) {
     const entry = nodes.get(id);
     if (!entry) return;

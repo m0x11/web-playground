@@ -75,6 +75,24 @@
   font-size: var(--fs-sm);
 }
 
+/* drag-and-drop reordering */
+.tree-row--dragging {
+  opacity: 0.4;
+}
+.tree-row.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+.tree-row.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+.tree-row.drop-onto {
+  background: var(--accent);
+  color: var(--text-on-dark);
+}
+.tree-row.drop-onto .tree-row__id {
+  color: var(--text-on-dark-muted);
+}
+
 /* Scene controls (top of left rail) — name + save/load */
 .scene-name-input {
   display: block;
