@@ -17,6 +17,7 @@
 import { assetUrl } from '../../scene/assets.js';
 import { trackLoad, trackSeek, imageLoad, videoMetadata, videoSeek }
   from '../../media/readiness.js';
+import { cycleIndex, cyclePeriodSeconds } from '../cycle.js';
 
 export const schema = {
   name: 'Media',
@@ -35,6 +36,11 @@ export const schema = {
       type: 'asset', label: 'Video', accept: 'video/*', default: '',
       visibleWhen: { source: 'video' },
     },
+    videoStart: {
+      type: 'number', label: 'Start at', min: 0, max: 600, step: 0.1,
+      unit: 's', default: 0,
+      visibleWhen: { source: 'video' },
+    },
     images: {
       type: 'asset-list', label: 'Images', accept: 'image/*', default: [],
       visibleWhen: { source: 'cycle' },
@@ -46,6 +52,11 @@ export const schema = {
     },
     cycleStart: {
       type: 'number', label: 'Start on', min: 0, max: 50, step: 1, default: 0,
+      visibleWhen: { source: 'cycle' },
+    },
+    cycleDir: {
+      type: 'enum', label: 'Direction',
+      options: ['forward', 'backward', 'ping-pong'], default: 'forward',
       visibleWhen: { source: 'cycle' },
     },
     fit: {
@@ -70,8 +81,7 @@ export const schema = {
 export function intrinsicDuration(props) {
   if (props.source === 'cycle') {
     const n = (props.images ?? []).length;
-    const speed = Math.max(0.001, props.cycleSpeed ?? 0.5);
-    return n * speed;
+    return cyclePeriodSeconds(n, props.cycleSpeed ?? 0.5, props.cycleDir);
   }
   return 0;
 }
@@ -192,14 +202,16 @@ export function mount(el, props, _ctx) {
     if (current.source === 'cycle' && cycleImgs.length > 0) {
       const speed = Math.max(0.001, current.cycleSpeed ?? 0.5);
       const start = Math.max(0, Math.round(current.cycleStart ?? 0));
-      const idx = (Math.floor(t / speed) + start) % cycleImgs.length;
+      const step = Math.floor(t / speed);
+      const idx = cycleIndex(step, cycleImgs.length, current.cycleDir, start);
       cycleImgs.forEach((im, i) => {
         im.style.display = i === idx ? 'block' : 'none';
       });
     } else if (current.source === 'video' && videoEl.src) {
       const dur = videoEl.duration;
       if (Number.isFinite(dur) && dur > 0) {
-        const target = t % dur;
+        const startAt = Math.max(0, current.videoStart ?? 0);
+        const target = (startAt + t) % dur;
         if (Math.abs(videoEl.currentTime - target) > 0.005) {
           videoEl.currentTime = target;
           trackSeek(videoSeek(videoEl, target));

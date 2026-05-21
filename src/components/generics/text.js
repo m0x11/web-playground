@@ -3,8 +3,10 @@
 // Two modes:
 //   static — one fixed string (`content`).
 //   cycle  — steps through `lines` every `cycleSpeed` seconds, beginning on
-//            `cycleStart`. Time-driven (deterministic), like a Media cycle —
-//            same string + different starts = staggered text cycles.
+//            `cycleStart`, in `cycleDir` (forward / backward / ping-pong).
+//            Time-driven (deterministic), like a Media cycle.
+
+import { cycleIndex, cyclePeriodSeconds } from '../cycle.js';
 
 export const schema = {
   name: 'Text',
@@ -32,6 +34,11 @@ export const schema = {
       type: 'number', label: 'Start on', min: 0, max: 50, step: 1, default: 0,
       visibleWhen: { mode: 'cycle' },
     },
+    cycleDir: {
+      type: 'enum', label: 'Direction',
+      options: ['forward', 'backward', 'ping-pong'], default: 'forward',
+      visibleWhen: { mode: 'cycle' },
+    },
     size: { type: 'number', label: 'Size', min: 8, max: 320, step: 1, unit: 'px', default: 32 },
     color: { type: 'color', label: 'Color', default: '#000000' },
     align: { type: 'enum', label: 'Align', options: ['left', 'center', 'right'], default: 'center' },
@@ -43,8 +50,7 @@ export const schema = {
 export function intrinsicDuration(props) {
   if (props.mode === 'cycle') {
     const n = (props.lines ?? []).length;
-    const speed = Math.max(0.001, props.cycleSpeed ?? 0.5);
-    return n * speed;
+    return cyclePeriodSeconds(n, props.cycleSpeed ?? 0.5, props.cycleDir);
   }
   return 0;
 }
@@ -81,8 +87,8 @@ function applyContent(el, p, t) {
     if (lines.length === 0) { el.textContent = ''; return; }
     const speed = Math.max(0.001, p.cycleSpeed ?? 0.5);
     const start = Math.max(0, Math.round(p.cycleStart ?? 0));
-    const idx = (Math.floor(t / speed) + start) % lines.length;
-    el.textContent = lines[idx];
+    const step = Math.floor(t / speed);
+    el.textContent = lines[cycleIndex(step, lines.length, p.cycleDir, start)];
   } else {
     el.textContent = p.content;
   }
