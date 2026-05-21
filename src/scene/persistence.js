@@ -113,6 +113,17 @@ export function validateScene(json) {
   if (!json.root || typeof json.root !== 'object') {
     throw new Error('Scene missing required field: root');
   }
+  if (json.canvas != null) {
+    if (typeof json.canvas !== 'object') {
+      throw new Error('Invalid canvas: must be an object');
+    }
+    const c = json.canvas;
+    const validAspect = Number.isFinite(c.aspectW) && Number.isFinite(c.aspectH) && c.aspectW > 0 && c.aspectH > 0;
+    const validLegacy = Number.isFinite(c.width)   && Number.isFinite(c.height)   && c.width   > 0 && c.height   > 0;
+    if (!validAspect && !validLegacy) {
+      throw new Error('Invalid canvas: must be { aspectW: >0, aspectH: >0 } (or legacy { width, height })');
+    }
+  }
   validateNode(json.root, new Set(), []);
 }
 

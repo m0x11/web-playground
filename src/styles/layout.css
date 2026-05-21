@@ -1,6 +1,10 @@
 #app {
   display: grid;
-  grid-template-columns: var(--left-rail-w) 1fr var(--right-rail-w);
+  /* minmax(0, 1fr) — default `1fr` is minmax(auto, 1fr), which grows to fit
+     intrinsic content size. The canvas layout box is large (e.g. 1920×1080),
+     so the column was expanding past the viewport and pushing rails offscreen.
+     min=0 lets the column shrink; #scene-stage's overflow:hidden clips. */
+  grid-template-columns: var(--left-rail-w) minmax(0, 1fr) var(--right-rail-w);
   grid-template-rows: 1fr;
   grid-template-areas: "left center right";
   height: 100%;
@@ -18,11 +22,30 @@
   flex-direction: column;
 }
 
+/* Stage: variable-sized container that holds the fixed-size canvas.
+   min-width: 0 + overflow: hidden lets the stage shrink below the canvas's
+   intrinsic size — without them, an out-of-flow layout box would still
+   propagate min-size requirements up through the grid + flex layers. */
 #scene-stage {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Canvas: design-space at fixed CSS pixel dimensions, absolutely positioned
+   at the stage's center, then translate(-50%, -50%)-scaled to fit. Using
+   absolute positioning keeps the canvas's layout box from affecting any
+   ancestor's width/height — only its visual scaled box matters. */
+#scene-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--border);
+  transform-origin: center center;
+  /* width, height, and transform: translate(-50%,-50%) scale(s) set by JS. */
 }
 
 #scene-root {
@@ -31,9 +54,8 @@
 }
 
 /* Export mode: hide all GUI chrome, let the scene fill the entire viewport.
-   Activated by scene.hideGUI() (adds body.gui-hidden). Playwright sets the
-   viewport to the target export resolution (e.g. 3840x2160) and screenshots
-   the whole window. */
+   The canvas is fit-scaled to viewport — so a 1920×1080 canvas exported at
+   3840×2160 displays at a clean 2× scale. */
 body.gui-hidden #left-rail,
 body.gui-hidden #right-rail,
 body.gui-hidden #timeline-bar {
@@ -52,4 +74,7 @@ body.gui-hidden #preview {
 body.gui-hidden #scene-stage {
   position: absolute;
   inset: 0;
+}
+body.gui-hidden #scene-canvas {
+  box-shadow: none;
 }

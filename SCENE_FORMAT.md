@@ -9,6 +9,7 @@ The on-disk shape of a saved scene. One JSON file today; will become a folder co
   "version": 1,
   "name": "snowflake-reel",
   "duration": 0,
+  "canvas": { "aspectW": 16, "aspectH": 9 },
   "root": { ... },
   "animations": []
 }
@@ -18,9 +19,10 @@ The on-disk shape of a saved scene. One JSON file today; will become a folder co
 |---|---|---|
 | `version` | integer | Always `1`. Bumped on breaking changes. |
 | `name` | string | Human-readable; default filename on save. |
-| `duration` | number | Seconds. `0` for now — Phase 5 wires it up. |
+| `duration` | number | Seconds. Used by the timeline + export. |
+| `canvas` | `{aspectW, aspectH}` | Design aspect ratio. Optional — defaults to `16:9`. Internal CSS-pixel dimensions are derived deterministically (longest side = 1920), so a `font-size: 200px` means a consistent fraction of the canvas across users. Export resolution is chosen separately (modal / CLI flags). Legacy `{width, height}` is still accepted and converted to aspect on load. |
 | `root` | Node | The component tree root. Required. |
-| `animations` | array | Reserved. Empty for v1; Phase 5 defines the entry shape. |
+| `animations` | array | Tween specs (see Phase 5 schema). |
 
 Future fields (not yet present): `target` (export format like `reel`/`square`/`1080p`), `assets` (asset bundle manifest).
 

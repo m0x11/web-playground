@@ -1,17 +1,47 @@
 // Renderer.
 //
 // Turns a scene JSON tree into DOM under #scene-root and keeps it in sync.
+// Also owns the design-space canvas: a fixed-CSS-pixel container that wraps
+// scene-root and is transform-scaled to fit whatever stage size is available
+// (variable in the GUI, full viewport in export). This is what makes a 32px
+// font look proportionally identical in the GUI preview and a 4K export.
+//
 // Key contract: node identity is stable across prop edits — every scene tree
 // node gets a persistent DOM node + component instance, keyed by `id`.
-//
-// Components may return `childRoot` from mount() to indicate where child
-// scene-nodes should be appended (e.g. Grid points children to its inner
-// frame, not the padded outer container). Defaults to `el` if omitted.
 
 import { getComponent, withDefaults } from '../components/index.js';
 
-const root = document.getElementById('scene-root');
+const root      = document.getElementById('scene-root');
+const stage     = document.getElementById('scene-stage');
+const canvasEl  = document.getElementById('scene-canvas');
+
 const nodes = new Map(); // id → { el, instance, componentName, childRoot, childCount, lastProps }
+
+let canvasW = 1920;
+let canvasH = 1080;
+
+function applyCanvasSize() {
+  canvasEl.style.width  = `${canvasW}px`;
+  canvasEl.style.height = `${canvasH}px`;
+  fitCanvas();
+}
+
+function fitCanvas() {
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  if (sw <= 0 || sh <= 0) return;
+  const scale = Math.min(sw / canvasW, sh / canvasH);
+  // translate(-50%, -50%) anchors the element's center to the stage's
+  // (left:50%, top:50%) position; scale shrinks/grows around that center via
+  // transform-origin: center. Result: canvas always visually centered.
+  canvasEl.style.transform = `translate(-50%, -50%) scale(${scale})`;
+}
+
+// Re-fit whenever the stage changes size (window resize, GUI hide/show, etc).
+new ResizeObserver(fitCanvas).observe(stage);
+
+// Initial fit using the default canvas dimensions until a scene is loaded.
+applyCanvasSize();
 
 export const renderer = {
   mount(sceneJson) {
@@ -22,7 +52,6 @@ export const renderer = {
     mountNode(sceneJson.root, root);
   },
 
-  // Apply new props to an existing mounted node. No remount.
   patch(id, fullProps) {
     const entry = nodes.get(id);
     if (!entry) {
@@ -33,9 +62,6 @@ export const renderer = {
     entry.instance.patch(fullProps, { childCount: entry.childCount });
   },
 
-  // Mount a new node (and its subtree) as a child of an existing node, then
-  // notify the parent of its new childCount so it can react (e.g. Grid hides
-  // placeholders).
   addChild(parentId, node, newChildCount) {
     const parent = nodes.get(parentId);
     if (!parent) {
@@ -47,12 +73,9 @@ export const renderer = {
     parent.instance.patch(parent.lastProps, { childCount: newChildCount });
   },
 
-  // Unmount a node and its descendants. Caller (scene) is responsible for
-  // calling refreshCtx on the parent after, with the new child count.
   removeNode(id) {
     const entry = nodes.get(id);
     if (!entry) return;
-    // Collect this + all descendant scene-node ids in DOM order.
     const descendants = [entry.el, ...entry.el.querySelectorAll('[data-scene-id]')];
     for (const descEl of descendants) {
       const descId = descEl.dataset.sceneId;
@@ -65,8 +88,6 @@ export const renderer = {
     entry.el.remove();
   },
 
-  // Tell a parent to re-evaluate its layout given a new child count, without
-  // changing its props. Used after addChild / removeNode.
   refreshCtx(id, newChildCount) {
     const entry = nodes.get(id);
     if (!entry) return;
@@ -74,11 +95,23 @@ export const renderer = {
     entry.instance.patch(entry.lastProps, { childCount: newChildCount });
   },
 
+  // Sets the design-space dimensions and re-fits to the stage. Called by
+  // scene.loadScene() (from sceneJson.canvas) and scene.setCanvas().
+  setCanvasSize(w, h) {
+    canvasW = Math.max(1, Math.round(w));
+    canvasH = Math.max(1, Math.round(h));
+    applyCanvasSize();
+  },
+
+  // Force a re-fit (e.g. after toggling export mode).
+  refit() { fitCanvas(); },
+
   update(_t) {
     // Phase 5: animation tick.
   },
 
   setSize(w, h) {
+    // Legacy override; canvas handles internal sizing now.
     if (w != null && h != null) {
       root.style.width = `${w}px`;
       root.style.height = `${h}px`;
@@ -91,6 +124,8 @@ export const renderer = {
   getEl(id) {
     return nodes.get(id)?.el ?? null;
   },
+
+  getCanvasEl() { return canvasEl; },
 };
 
 function mountNode(node, parentEl) {

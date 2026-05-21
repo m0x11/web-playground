@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "rotation-completion-test",
+  "duration": 3,
+  "canvas": { "width": 1920, "height": 1080 },
+  "root": {
+    "id": "root",
+    "component": "Grid",
+    "props": { "mode": "columns", "columns": 1, "padding": 240 },
+    "children": [
+      { "id": "text-1", "component": "Text", "props": { "content": "ROTATION", "size": 200, "color": "#1100ee", "weight": "bold" }, "children": [] }
+    ]
+  },
+  "animations": [
+    { "id": "tween-1", "target": "text-1", "property": "rotation", "from": 0, "to": 360, "start": 2, "duration": 1, "easing": "linear" }
+  ]
+}

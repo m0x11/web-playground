@@ -104,6 +104,57 @@
   margin: 0;
 }
 
+.scene-export-btn {
+  margin-top: 6px;
+  width: 100%;
+  text-align: center;
+}
+
+.canvas-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.canvas-row__label {
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  min-width: 56px;
+}
+.canvas-preset {
+  flex: 1;
+  background: var(--panel-bg-pure);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: 4px 6px;
+  border-radius: 0;
+  min-width: 0;
+}
+.canvas-preset:focus { outline: none; border-color: var(--accent); }
+
+.canvas-custom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding-left: 64px; /* align with the preset */
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+.canvas-custom input {
+  width: 64px;
+  background: var(--panel-bg-pure);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: 3px 5px;
+  border-radius: 0;
+}
+.canvas-custom input:focus { outline: none; border-color: var(--accent); }
+
 /* Add-component picker buttons in the left rail */
 .picker-btn {
   display: block;

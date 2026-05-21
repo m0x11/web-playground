@@ -23,7 +23,34 @@ const EVENTS = [
   'scene-tree-changed',
   'scene-name-changed',
   'animations-changed',
+  'scene-canvas-changed',
 ];
+
+const DEFAULT_CANVAS_ASPECT = { aspectW: 16, aspectH: 9 };
+const CANVAS_LONGEST_SIDE = 1920;
+
+// Internal pixel dimensions are deterministic from the aspect ratio so a
+// "200px font" means a consistent fraction of the canvas across users.
+// Longest side is fixed at 1920 CSS px; the other dimension follows.
+function pixelsFromAspect(aspect) {
+  const { aspectW, aspectH } = aspect;
+  if (aspectW >= aspectH) {
+    return { width: CANVAS_LONGEST_SIDE, height: Math.round(CANVAS_LONGEST_SIDE * aspectH / aspectW) };
+  }
+  return { width: Math.round(CANVAS_LONGEST_SIDE * aspectW / aspectH), height: CANVAS_LONGEST_SIDE };
+}
+
+// Accept legacy { width, height } and convert to aspect at load time.
+function normalizeCanvas(c) {
+  if (!c || typeof c !== 'object') return { ...DEFAULT_CANVAS_ASPECT };
+  if (Number.isFinite(c.aspectW) && Number.isFinite(c.aspectH) && c.aspectW > 0 && c.aspectH > 0) {
+    return { aspectW: c.aspectW, aspectH: c.aspectH };
+  }
+  if (Number.isFinite(c.width) && Number.isFinite(c.height) && c.width > 0 && c.height > 0) {
+    return { aspectW: c.width, aspectH: c.height };
+  }
+  return { ...DEFAULT_CANVAS_ASPECT };
+}
 
 export function createScene({ renderer }) {
   const listeners = Object.fromEntries(EVENTS.map(name => [name, new Set()]));
@@ -95,7 +122,11 @@ export function createScene({ renderer }) {
   function loadScene(json) {
     state.sceneJson = json;
     state.duration = json?.duration ?? 0;
+    // Normalize canvas to aspect form (handles legacy {width,height} too).
+    state.sceneJson.canvas = normalizeCanvas(state.sceneJson.canvas);
     renderer.mount(json);
+    const px = pixelsFromAspect(state.sceneJson.canvas);
+    renderer.setCanvasSize(px.width, px.height);
     timeline.setAnimations(json?.animations ?? []);
     emit('scene-loaded', json);
     setTime(0);
@@ -145,6 +176,10 @@ export function createScene({ renderer }) {
   function hideGUI() {
     state.guiHidden = true;
     document.body.classList.add('gui-hidden');
+    // Re-fit the canvas after the layout switch — ResizeObserver fires too,
+    // but a synchronous nudge avoids a one-frame stale-size in the first
+    // exported PNG.
+    renderer.refit?.();
   }
 
   function on(event, fn) {
@@ -296,6 +331,24 @@ export function createScene({ renderer }) {
     return state.sceneJson?.name ?? '';
   }
 
+  function getCanvas() {
+    return { ...(state.sceneJson?.canvas ?? DEFAULT_CANVAS_ASPECT) };
+  }
+
+  function getCanvasPixels() {
+    return pixelsFromAspect(getCanvas());
+  }
+
+  function setCanvas(aspectW, aspectH) {
+    if (!state.sceneJson) return;
+    const w = Math.max(1, aspectW);
+    const h = Math.max(1, aspectH);
+    state.sceneJson.canvas = { aspectW: w, aspectH: h };
+    const px = pixelsFromAspect(state.sceneJson.canvas);
+    renderer.setCanvasSize(px.width, px.height);
+    emit('scene-canvas-changed', { aspectW: w, aspectH: h });
+  }
+
   function _state() { return state; }
 
   return {
@@ -306,6 +359,7 @@ export function createScene({ renderer }) {
     addAnimation, removeAnimation, updateAnimation,
     listAnimations, listAnimationsForTarget,
     serialize, setName, getName,
+    getCanvas, setCanvas, getCanvasPixels,
     _state,
   };
 }
