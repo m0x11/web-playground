@@ -137,8 +137,20 @@
 .canvas-row__label {
   color: var(--text-muted);
   font-size: var(--fs-base);
-  min-width: 56px;
+  min-width: 76px;
 }
+
+.scene-bg-input {
+  flex: 1;
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0;
+}
+.scene-bg-input:focus { outline: none; border-color: var(--accent); }
 .canvas-preset {
   flex: 1;
   background: var(--panel-bg-pure);

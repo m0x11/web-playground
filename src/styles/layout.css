@@ -53,6 +53,12 @@
   inset: 0;
 }
 
+/* Highlight a Media cell while OS files are dragged over it. */
+.scene-node.media-drop-active {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
 /* Export mode: hide all GUI chrome, let the scene fill the entire viewport.
    The canvas is fit-scaled to viewport — so a 1920×1080 canvas exported at
    3840×2160 displays at a clean 2× scale. */

@@ -22,6 +22,42 @@
   font-size: var(--fs-base);
 }
 
+/* Editable number field paired with a slider — looks like plain text until
+   hovered/focused (sdf-playground's snow-val-input pattern). */
+.control__num {
+  width: 54px;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--accent);
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  padding: 1px 3px;
+  border-radius: 0;
+  -moz-appearance: textfield;
+}
+.control__num:hover {
+  border-color: var(--border);
+}
+.control__num:focus {
+  outline: none;
+  background: var(--panel-bg-pure);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.control__num::-webkit-outer-spin-button,
+.control__num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.control__unit {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
 .control__input {
   font-family: var(--font-mono);
   font-size: var(--fs-base);

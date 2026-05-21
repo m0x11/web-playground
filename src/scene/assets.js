@@ -7,7 +7,9 @@
 export async function importFile(file) {
   const res = await fetch('/__import', {
     method: 'POST',
-    headers: { 'X-Filename': file.name },
+    // URL-encode: HTTP header values must be Latin-1, but filenames can hold
+    // arbitrary Unicode (e.g. macOS screenshots use U+202F before AM/PM).
+    headers: { 'X-Filename': encodeURIComponent(file.name) },
     body: file,
   });
   if (!res.ok) {
@@ -33,12 +35,17 @@ export function pickAndImport({ accept = '', multiple = false } = {}) {
       input.remove();
       if (files.length === 0) return resolve([]);
       const paths = [];
+      const failed = [];
       for (const file of files) {
         try {
           paths.push(await importFile(file));
         } catch (err) {
           console.error('import failed for', file.name, err);
+          failed.push(file.name);
         }
+      }
+      if (failed.length > 0) {
+        alert(`Couldn't import ${failed.length} file(s):\n${failed.join('\n')}`);
       }
       resolve(paths);
     });

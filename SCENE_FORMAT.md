@@ -10,6 +10,7 @@ The on-disk shape of a saved scene. One JSON file today; will become a folder co
   "name": "snowflake-reel",
   "duration": 0,
   "canvas": { "aspectW": 16, "aspectH": 9 },
+  "background": "#ffffff",
   "root": { ... },
   "animations": []
 }
@@ -21,6 +22,7 @@ The on-disk shape of a saved scene. One JSON file today; will become a folder co
 | `name` | string | Human-readable; default filename on save. |
 | `duration` | number | Seconds. Used by the timeline + export. |
 | `canvas` | `{aspectW, aspectH}` | Design aspect ratio. Optional — defaults to `16:9`. Internal CSS-pixel dimensions are derived deterministically (longest side = 1920), so a `font-size: 200px` means a consistent fraction of the canvas across users. Export resolution is chosen separately (modal / CLI flags). Legacy `{width, height}` is still accepted and converted to aspect on load. |
+| `background` | string | Canvas background color. Optional — defaults to `#ffffff`. |
 | `root` | Node | The component tree root. Required. |
 | `animations` | array | Tween specs (see Phase 5 schema). |
 
@@ -43,6 +45,7 @@ Every node in the tree:
 - **`component`** — string, must be in the runtime's `COMPONENT_REGISTRY`.
 - **`props`** — object. Stores **only values that differ from the component's defaults**; the runtime fills in the rest via `withDefaults` on mount. Storing defaults too is legal but redundant.
 - **`children`** — array of nodes. Empty array if the component holds no children. Components whose schema declares `children: 'none'` should always have an empty array.
+- **`layout`** — optional object. Per-cell layout hints read by a Grid parent: `{ width, aspect }` in freeform mode, `{ colSpan, rowSpan }` in columns mode. Absent on nodes that aren't grid cells.
 
 ## Validation
 

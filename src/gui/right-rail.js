@@ -95,10 +95,7 @@ export function mountRightRail(el, scene) {
     layoutBody.innerHTML = '';
 
     const parent = id ? scene.getParentNode(id) : null;
-    const freeformParent =
-      parent && parent.component === 'Grid' && (parent.props?.mode ?? 'columns') === 'freeform';
-
-    if (!freeformParent) {
+    if (!parent || parent.component !== 'Grid') {
       layoutSection.hidden = true;
       return;
     }
@@ -111,24 +108,39 @@ export function mountRightRail(el, scene) {
     const hint = document.createElement('div');
     hint.className = 'panel-placeholder';
     hint.style.marginBottom = '8px';
-    hint.textContent = 'cell size within the freeform grid';
     layoutBody.appendChild(hint);
 
-    layoutBody.appendChild(createSlider({
-      label: 'Width',
-      min: 20, max: 2000, step: 1, unit: 'px',
-      value: layout.width ?? gridProps.cellWidth,
-      onChange: v => scene.updateLayout(id, { width: v }),
-    }));
-
-    // Ratio is moot when the parent grid fills height — hide it then.
-    if (!gridProps.fillHeight) {
+    if (gridProps.mode === 'columns') {
+      hint.textContent = 'grid cells this tile spans';
       layoutBody.appendChild(createSlider({
-        label: 'Ratio',
-        min: 0.2, max: 5, step: 0.05,
-        value: layout.aspect ?? gridProps.cellAspect,
-        onChange: v => scene.updateLayout(id, { aspect: v }),
+        label: 'Col span',
+        min: 1, max: gridProps.columns, step: 1,
+        value: Math.min(layout.colSpan ?? 1, gridProps.columns),
+        onChange: v => scene.updateLayout(id, { colSpan: v }),
       }));
+      layoutBody.appendChild(createSlider({
+        label: 'Row span',
+        min: 1, max: 8, step: 1,
+        value: layout.rowSpan ?? 1,
+        onChange: v => scene.updateLayout(id, { rowSpan: v }),
+      }));
+    } else {
+      hint.textContent = 'cell size within the freeform grid';
+      layoutBody.appendChild(createSlider({
+        label: 'Width',
+        min: 20, max: 2000, step: 1, unit: 'px',
+        value: layout.width ?? gridProps.cellWidth,
+        onChange: v => scene.updateLayout(id, { width: v }),
+      }));
+      // Ratio is moot when the parent grid fills height — hide it then.
+      if (!gridProps.fillHeight) {
+        layoutBody.appendChild(createSlider({
+          label: 'Ratio',
+          min: 0.2, max: 5, step: 0.05,
+          value: layout.aspect ?? gridProps.cellAspect,
+          onChange: v => scene.updateLayout(id, { aspect: v }),
+        }));
+      }
     }
   }
 

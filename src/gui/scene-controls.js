@@ -29,6 +29,10 @@ export function mountSceneControls(host, scene) {
         <span>:</span>
         <input type="number" id="canvas-h" min="1" step="1">
       </div>
+      <div class="canvas-row">
+        <label class="canvas-row__label">background</label>
+        <input type="color" class="scene-bg-input" id="scene-bg">
+      </div>
 
       <div class="scene-controls__buttons">
         <button class="picker-btn" id="scene-save">save</button>
@@ -47,6 +51,12 @@ export function mountSceneControls(host, scene) {
     if (nameInput.value !== name) nameInput.value = name;
   });
   scene.on('scene-canvas-changed', refreshCanvas);
+
+  // ── background ─────────────────────────────────────────────────────────
+  const bgInput = host.querySelector('#scene-bg');
+  bgInput.value = scene.getBackground();
+  bgInput.addEventListener('input', () => scene.setBackground(bgInput.value));
+  scene.on('scene-loaded', () => { bgInput.value = scene.getBackground(); });
 
   // ── canvas controls ────────────────────────────────────────────────────
   const presetSel = host.querySelector('#canvas-preset');

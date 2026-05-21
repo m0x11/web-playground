@@ -1,5 +1,8 @@
-// Number slider control. Live value display on the right, calls onChange on
-// every drag tick (`input` event) so prop updates land continuously.
+// Number control — a range slider paired with an editable number field.
+//
+// The slider is a quick way to scrub the [min, max] range; the number field
+// lets you click and type an exact value. Both stay in sync. Typed values are
+// clamped to [min, max] on commit (so a stray "0" for a 1-min prop snaps back).
 
 export function createSlider({ label, min, max, step, value, unit, onChange }) {
   const wrap = document.createElement('div');
@@ -9,25 +12,53 @@ export function createSlider({ label, min, max, step, value, unit, onChange }) {
   labelEl.className = 'control__label';
   labelEl.textContent = label;
 
-  const input = document.createElement('input');
-  input.type = 'range';
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
-  input.value = String(value);
-  input.className = 'control__input';
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.className = 'control__input';
+  range.min = String(min);
+  range.max = String(max);
+  range.step = String(step);
+  range.value = String(value);
 
-  const valEl = document.createElement('span');
-  valEl.className = 'control__value';
-  const fmt = v => `${v}${unit ?? ''}`;
-  valEl.textContent = fmt(value);
+  const num = document.createElement('input');
+  num.type = 'number';
+  num.className = 'control__num';
+  num.step = String(step);
+  num.value = String(value);
 
-  input.addEventListener('input', () => {
-    const v = Number(input.value);
-    valEl.textContent = fmt(v);
+  const clamp = v => Math.min(max, Math.max(min, v));
+
+  range.addEventListener('input', () => {
+    const v = Number(range.value);
+    num.value = String(v);
     onChange(v);
   });
 
-  wrap.append(labelEl, input, valEl);
+  // While typing, push live (clamped) values so the preview tracks — but
+  // don't rewrite the field, so the user can finish typing freely.
+  num.addEventListener('input', () => {
+    const v = parseFloat(num.value);
+    if (!Number.isFinite(v)) return;
+    const c = clamp(v);
+    range.value = String(c);
+    onChange(c);
+  });
+
+  // On commit (blur / Enter), normalize the displayed value.
+  num.addEventListener('change', () => {
+    const v = parseFloat(num.value);
+    const c = Number.isFinite(v) ? clamp(v) : Number(value);
+    num.value = String(c);
+    range.value = String(c);
+    onChange(c);
+  });
+
+  wrap.append(labelEl, range, num);
+  if (unit) {
+    const u = document.createElement('span');
+    u.className = 'control__unit';
+    u.textContent = unit;
+    wrap.appendChild(u);
+  }
   return wrap;
 }

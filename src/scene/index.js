@@ -25,6 +25,7 @@ const EVENTS = [
   'scene-name-changed',
   'animations-changed',
   'scene-canvas-changed',
+  'scene-background-changed',
 ];
 
 const DEFAULT_CANVAS_ASPECT = { aspectW: 16, aspectH: 9 };
@@ -146,9 +147,11 @@ export function createScene({ renderer }) {
     state.duration = json?.duration ?? 0;
     // Normalize canvas to aspect form (handles legacy {width,height} too).
     state.sceneJson.canvas = normalizeCanvas(state.sceneJson.canvas);
+    if (!state.sceneJson.background) state.sceneJson.background = '#ffffff';
     renderer.mount(json);
     const px = pixelsFromAspect(state.sceneJson.canvas);
     renderer.setCanvasSize(px.width, px.height);
+    renderer.setBackground(state.sceneJson.background);
     timeline.setAnimations(json?.animations ?? []);
     emit('scene-loaded', json);
     setTime(0);
@@ -490,6 +493,17 @@ export function createScene({ renderer }) {
     emit('scene-canvas-changed', { aspectW: w, aspectH: h });
   }
 
+  function getBackground() {
+    return state.sceneJson?.background ?? '#ffffff';
+  }
+
+  function setBackground(color) {
+    if (!state.sceneJson) return;
+    state.sceneJson.background = color;
+    renderer.setBackground(color);
+    emit('scene-background-changed', color);
+  }
+
   function _state() { return state; }
 
   return {
@@ -502,6 +516,7 @@ export function createScene({ renderer }) {
     listAnimations, listAnimationsForTarget,
     serialize, setName, getName,
     getCanvas, setCanvas, getCanvasPixels,
+    getBackground, setBackground,
     _state,
   };
 }

@@ -1,27 +1,24 @@
 // Grid — layout primitive.
 //
 // Two modes:
-//   columns  — CSS Grid, N equal-width columns.
-//   freeform — flex-wrap flow. Cells size by `cellWidth` × ratio and wrap to
-//              new rows. Per-cell overrides come from each child node's
-//              `layout` field ({ width?, aspect? }).
+//   columns  — CSS Grid, N equal-width columns. Per-cell node.layout may set
+//              { colSpan, rowSpan } so a cell occupies an N×M block (e.g. a
+//              2×2 featured tile in a 3-column grid). Row height is measured
+//              from the column width so spans stay grid-aligned + proportional.
+//   freeform — flex-wrap flow. Cells size by `cellWidth` × ratio and wrap.
+//              Per-cell node.layout may set { width, aspect }.
 //
 // Cell height:
-//   fillHeight off — `cellAspect` ratio (per-cell `layout.aspect` overrides).
+//   fillHeight off — `cellAspect` ratio.
 //   fillHeight on  — cells stretch to fill the available vertical space.
 //
 // Cell borders:
 //   cellBorder off — none.
 //   cellBorder on, shareBorders off — full border per cell.
-//   cellBorder on, shareBorders on  — borders are fully cell-driven (no frame
-//     border, so they always match the cells exactly): every cell borders
-//     right + bottom; cells on the first row also border top; cells starting
-//     a row also border left. Adjacent tiles then share one line. Gap is
-//     forced to 0 so cells sit flush.
-//
-// Structure:
-//   .gen-grid           — outer, owns padding + sizing
-//     .gen-grid__frame  — inner, owns layout mode + holds children
+//   cellBorder on, shareBorders on  — cell-driven: every cell borders
+//     right+bottom; cells on the top/left grid edge also border top/left.
+//     Edge cells are found by measuring offsetTop/offsetLeft, so this is
+//     correct even with spanning cells. Gap is forced to 0.
 
 export const schema = {
   name: 'Grid',
@@ -96,15 +93,30 @@ export function mount(el, props, ctx) {
   el.appendChild(frame);
 
   let node = ctx?.node ?? null;
-  apply(el, frame, props, ctx?.childCount ?? 0, node);
+  let lastProps = props;
+  let lastChildCount = ctx?.childCount ?? 0;
+
+  function reapply() {
+    apply(el, frame, lastProps, lastChildCount, node);
+  }
+
+  // The columns-mode row height is measured from the frame width, so re-apply
+  // whenever the frame resizes (canvas aspect change, nested-grid resize, …).
+  const ro = new ResizeObserver(() => reapply());
+  ro.observe(frame);
+
+  reapply();
 
   return {
     childRoot: frame,
     patch(nextProps, nextCtx = {}) {
       if (nextCtx.node) node = nextCtx.node;
-      apply(el, frame, nextProps, nextCtx.childCount ?? 0, node);
+      lastProps = nextProps;
+      if (typeof nextCtx.childCount === 'number') lastChildCount = nextCtx.childCount;
+      reapply();
     },
     unmount() {
+      ro.disconnect();
       el.classList.remove('gen-grid');
       frame.remove();
       el.style.cssText = '';
@@ -119,19 +131,29 @@ function apply(el, frame, p, childCount, node) {
     padding: `${p.padding}px`,
   });
 
-  // Shared borders need cells flush against each other.
   const gap = (p.cellBorder && p.shareBorders) ? 0 : p.gap;
-
   const common = {
     boxSizing: 'border-box',
     width: '100%', height: '100%',
     gap: `${gap}px`,
   };
+
   if (p.mode === 'columns') {
+    let autoRows;
+    if (p.fillHeight) {
+      autoRows = '1fr';
+    } else {
+      // Measure one column's width → row height = colW / cellAspect. Makes a
+      // 1×1 cell match cellAspect and an N×M span a clean grid-aligned block.
+      const frameW = frame.clientWidth;
+      const colW = (frameW - (p.columns - 1) * gap) / p.columns;
+      const rowH = colW / Math.max(0.01, p.cellAspect);
+      autoRows = (Number.isFinite(rowH) && rowH > 0) ? `${rowH}px` : 'auto';
+    }
     Object.assign(frame.style, common, {
       display: 'grid',
       gridTemplateColumns: `repeat(${p.columns}, 1fr)`,
-      gridAutoRows: p.fillHeight ? '1fr' : 'auto',
+      gridAutoRows: autoRows,
       alignContent: 'start',
       flexWrap: '', justifyContent: '',
     });
@@ -171,21 +193,29 @@ function styleChildren(frame, p, node) {
 
 function sizeCell(cell, p, layout) {
   cell.style.boxSizing = 'border-box';
+  cell.style.height = '';
   if (p.mode === 'freeform') {
     cell.style.flex = '0 0 auto';
     cell.style.width = `${layout?.width ?? p.cellWidth}px`;
+    cell.style.gridColumn = '';
+    cell.style.gridRow = '';
+    cell.style.aspectRatio = p.fillHeight ? '' : String(layout?.aspect ?? p.cellAspect);
   } else {
     cell.style.flex = '';
     cell.style.width = '';
+    const colSpan = Math.min(p.columns, Math.max(1, Math.round(layout?.colSpan ?? 1)));
+    const rowSpan = Math.max(1, Math.round(layout?.rowSpan ?? 1));
+    cell.style.gridColumn = `span ${colSpan}`;
+    cell.style.gridRow = `span ${rowSpan}`;
+    cell.style.aspectRatio = '';   // shape comes from the measured row height
   }
-  cell.style.aspectRatio = p.fillHeight ? '' : String(layout?.aspect ?? p.cellAspect);
-  cell.style.height = '';
 }
 
 // ── borders ────────────────────────────────────────────────────────────────
 //
-// Fully cell-driven so the border always tracks the cells, never a fixed
-// frame box. `cells` is in document/tree order.
+// Fully cell-driven so the border always tracks the cells. `cells` is in
+// tree order. For shared borders, top/left edge cells are found by measured
+// position — correct even when cells span multiple tracks.
 
 function applyBorders(frame, p, cells) {
   for (const cell of cells) {
@@ -204,26 +234,20 @@ function applyBorders(frame, p, cells) {
     return;
   }
 
-  // Shared: right + bottom on every cell; top/left only on edge cells.
   for (const cell of cells) {
     cell.style.borderRight = b;
     cell.style.borderBottom = b;
   }
-  if (p.mode === 'columns') {
-    cells.forEach((cell, i) => {
-      if (i < p.columns) cell.style.borderTop = b;
-      if (i % p.columns === 0) cell.style.borderLeft = b;
-    });
-  } else if (cells.length > 0) {
-    // Freeform: detect wrap rows by offsetTop (layout coords, transform-safe).
-    const firstTop = cells[0].offsetTop;
-    let prevTop = firstTop;
-    cells.forEach((cell, i) => {
-      const top = cell.offsetTop;
-      if (i === 0 || top > prevTop + 1) cell.style.borderLeft = b;
-      if (Math.abs(top - firstTop) < 1) cell.style.borderTop = b;
-      prevTop = top;
-    });
+  if (cells.length === 0) return;
+
+  let minTop = Infinity, minLeft = Infinity;
+  for (const cell of cells) {
+    if (cell.offsetTop < minTop) minTop = cell.offsetTop;
+    if (cell.offsetLeft < minLeft) minLeft = cell.offsetLeft;
+  }
+  for (const cell of cells) {
+    if (cell.offsetTop <= minTop + 1) cell.style.borderTop = b;
+    if (cell.offsetLeft <= minLeft + 1) cell.style.borderLeft = b;
   }
 }
 
@@ -251,16 +275,21 @@ function renderPlaceholders(frame, p) {
       background: 'rgba(0,0,0,0.05)',
       color: 'rgba(0,0,0,0.5)',
       fontFamily: 'var(--font-mono)', fontSize: '14px',
+      height: '',
     });
     if (p.mode === 'freeform') {
       cell.style.flex = '0 0 auto';
       cell.style.width = `${p.cellWidth}px`;
+      cell.style.gridColumn = '';
+      cell.style.gridRow = '';
+      cell.style.aspectRatio = p.fillHeight ? '' : String(p.cellAspect);
     } else {
       cell.style.flex = '';
       cell.style.width = '';
+      cell.style.gridColumn = '';
+      cell.style.gridRow = '';
+      cell.style.aspectRatio = '';
     }
-    cell.style.aspectRatio = p.fillHeight ? '' : String(p.cellAspect);
-    cell.style.height = '';
   });
 
   applyBorders(frame, p, existing);

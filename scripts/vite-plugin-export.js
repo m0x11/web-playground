@@ -35,7 +35,8 @@ export function exportPlugin() {
 
 async function handleImport(req, res) {
   try {
-    const rawName = String(req.headers['x-filename'] || 'asset');
+    let rawName = String(req.headers['x-filename'] || 'asset');
+    try { rawName = decodeURIComponent(rawName); } catch { /* keep as-is */ }
     const bytes = await readBody(req);
     if (bytes.length === 0) {
       res.writeHead(400); res.end('empty file'); return;
