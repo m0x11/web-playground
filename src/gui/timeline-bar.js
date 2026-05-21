@@ -126,6 +126,9 @@ export function mountTimelineBar(host, scene) {
   scene.on('time-changed', refresh);
   scene.on('scene-loaded', refresh);
   scene.on('animations-changed', refresh);
+  // Tree / prop changes can shift the cycle-derived duration.
+  scene.on('scene-tree-changed', refresh);
+  scene.on('node-updated', refresh);
 
   refresh();
 }

@@ -44,12 +44,28 @@ export const schema = {
       unit: 's', default: 0.5,
       visibleWhen: { source: 'cycle' },
     },
+    cycleStart: {
+      type: 'number', label: 'Start on', min: 0, max: 50, step: 1, default: 0,
+      visibleWhen: { source: 'cycle' },
+    },
     fit: {
       type: 'enum', label: 'Fit',
       options: ['cover', 'contain', 'fill', 'none'], default: 'cover',
     },
   },
 };
+
+// How much scene time this component intrinsically needs. The scene's
+// duration() takes the max across the tree, so a cycle alone makes the
+// timeline playable. One full cycle = images.length × cycleSpeed.
+export function intrinsicDuration(props) {
+  if (props.source === 'cycle') {
+    const n = (props.images ?? []).length;
+    const speed = Math.max(0.001, props.cycleSpeed ?? 0.5);
+    return n * speed;
+  }
+  return 0;
+}
 
 export function mount(el, props, _ctx) {
   el.classList.add('gen-media');
@@ -154,7 +170,8 @@ export function mount(el, props, _ctx) {
   function onTime(t) {
     if (current.source === 'cycle' && cycleImgs.length > 0) {
       const speed = Math.max(0.001, current.cycleSpeed ?? 0.5);
-      const idx = Math.floor(t / speed) % cycleImgs.length;
+      const start = Math.max(0, Math.round(current.cycleStart ?? 0));
+      const idx = (Math.floor(t / speed) + start) % cycleImgs.length;
       cycleImgs.forEach((im, i) => {
         im.style.display = i === idx ? 'block' : 'none';
       });

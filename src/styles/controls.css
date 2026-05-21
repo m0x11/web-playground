@@ -129,7 +129,8 @@
   flex: 1;
 }
 
-.props-delete {
+.props-delete,
+.props-dup {
   background: transparent;
   color: var(--text-muted);
   border: 1px solid var(--border);
@@ -144,6 +145,12 @@
   background: var(--accent-warn);
   color: var(--text-on-dark);
   border-color: var(--accent-warn);
+}
+
+.props-dup:hover {
+  background: var(--accent);
+  color: var(--text-on-dark);
+  border-color: var(--accent);
 }
 
 /* Animations panel ────────────────────────────────────────────── */

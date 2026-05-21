@@ -59,6 +59,13 @@ export function mountRightRail(el, scene) {
 
     const isRoot = scene.getRootNode()?.id === id;
     if (!isRoot) {
+      const dup = document.createElement('button');
+      dup.className = 'props-dup';
+      dup.textContent = '⧉ dup';
+      dup.title = 'duplicate (props + animations)';
+      dup.addEventListener('click', () => scene.duplicateNode(id));
+      subhead.appendChild(dup);
+
       const del = document.createElement('button');
       del.className = 'props-delete';
       del.textContent = '× delete';

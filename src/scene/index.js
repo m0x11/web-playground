@@ -104,6 +104,27 @@ export function createScene({ renderer }) {
     return out;
   }
 
+  function forEachNode(node, fn) {
+    if (!node) return;
+    fn(node);
+    for (const child of node.children ?? []) forEachNode(child, fn);
+  }
+
+  // Largest intrinsic duration declared by any component in the tree (e.g.
+  // a Media cycle = images × cycleSpeed). Lets a cycle alone make the
+  // timeline playable.
+  function intrinsicDuration() {
+    let max = 0;
+    forEachNode(state.sceneJson?.root, node => {
+      let Comp;
+      try { Comp = getComponent(node.component); } catch { return; }
+      if (typeof Comp.intrinsicDuration !== 'function') return;
+      const d = Comp.intrinsicDuration(withDefaults(Comp.schema, node.props)) ?? 0;
+      if (d > max) max = d;
+    });
+    return max;
+  }
+
   function generateId(componentName) {
     const slug = componentName.toLowerCase();
     let n = 1;
@@ -157,7 +178,7 @@ export function createScene({ renderer }) {
   function time() { return state.time; }
 
   function duration() {
-    return Math.max(state.duration, timeline.computeDuration());
+    return Math.max(state.duration, timeline.computeDuration(), intrinsicDuration());
   }
 
   // Resolves once every media asset declared by the current scene has loaded
@@ -300,6 +321,62 @@ export function createScene({ renderer }) {
     emit('animations-changed');
   }
 
+  // Deep-clone a node (subtree + props + layout) with fresh ids, insert it
+  // right after the original within the same parent, and clone any animations
+  // targeting the subtree (retargeted to the clones).
+  function duplicateNode(id) {
+    const root = state.sceneJson?.root;
+    if (!root || root.id === id) {
+      console.warn('scene.duplicateNode: cannot duplicate the root');
+      return null;
+    }
+    const original = getNode(id);
+    const parent = findParent(root, id);
+    if (!original || !parent) return null;
+
+    const idMap = new Map();          // originalId → cloneId
+    const used = new Set(collectIds(root));
+    const clone = cloneSubtree(original, idMap, used);
+
+    const idx = parent.children.findIndex(c => c.id === id);
+    const beforeId = parent.children[idx + 1]?.id ?? null;
+    parent.children.splice(idx + 1, 0, clone);
+
+    // Clone every animation targeting the original subtree.
+    for (const anim of [...(state.sceneJson.animations ?? [])]) {
+      if (!idMap.has(anim.target)) continue;
+      if (!state.sceneJson.animations) state.sceneJson.animations = [];
+      const cloned = { ...anim, id: generateAnimationId(), target: idMap.get(anim.target) };
+      state.sceneJson.animations.push(cloned);
+      timeline.add(cloned);
+    }
+
+    renderer.addChild(parent.id, clone, parent.children.length, beforeId);
+    select(clone.id);
+    setTime(state.time);
+    emit('scene-tree-changed');
+    emit('animations-changed');
+    return clone.id;
+  }
+
+  function cloneSubtree(node, idMap, used) {
+    const slug = node.component.toLowerCase();
+    let n = 1;
+    while (used.has(`${slug}-${n}`)) n += 1;
+    const newId = `${slug}-${n}`;
+    used.add(newId);
+    idMap.set(node.id, newId);
+
+    const clone = {
+      id: newId,
+      component: node.component,
+      props: structuredClone(node.props ?? {}),
+      children: (node.children ?? []).map(c => cloneSubtree(c, idMap, used)),
+    };
+    if (node.layout) clone.layout = structuredClone(node.layout);
+    return clone;
+  }
+
   // ── animation mutation ──────────────────────────────────────────────────
 
   function addAnimation(spec) {
@@ -381,7 +458,7 @@ export function createScene({ renderer }) {
     loadScene, setTime, play, pause, playing, time, duration,
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps, getParentNode,
-    updateProps, updateLayout, addNode, removeNode,
+    updateProps, updateLayout, addNode, removeNode, duplicateNode,
     addAnimation, removeAnimation, updateAnimation,
     listAnimations, listAnimationsForTarget,
     serialize, setName, getName,

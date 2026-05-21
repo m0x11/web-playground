@@ -62,13 +62,22 @@ export const renderer = {
     entry.instance.patch(fullProps, { childCount: entry.childCount, node: entry.node });
   },
 
-  addChild(parentId, node, newChildCount) {
+  // Mount a new node (and its subtree) under an existing node. If `beforeId`
+  // is given, the new DOM is inserted before that sibling; otherwise appended.
+  addChild(parentId, node, newChildCount, beforeId = null) {
     const parent = nodes.get(parentId);
     if (!parent) {
       console.warn(`renderer.addChild: unknown parent "${parentId}"`);
       return;
     }
     mountNode(node, parent.childRoot);
+    if (beforeId) {
+      const ref = nodes.get(beforeId)?.el;
+      const justMounted = nodes.get(node.id)?.el;
+      if (ref && justMounted && ref.parentElement === parent.childRoot) {
+        parent.childRoot.insertBefore(justMounted, ref);
+      }
+    }
     parent.childCount = newChildCount;
     parent.instance.patch(parent.lastProps, { childCount: newChildCount, node: parent.node });
   },
