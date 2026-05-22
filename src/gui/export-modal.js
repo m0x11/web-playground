@@ -41,6 +41,7 @@ export function openExportModal(scene) {
     fps: 30,
     duration: Math.max(scene.duration(), 1),
     progress: { n: 0, total: 0, fps: 0, elapsed: 0 },
+    note: '',
     outputPath: null,
     totalMs: 0,
   };
@@ -186,7 +187,7 @@ export function openExportModal(scene) {
         `<span>frame ${p.n} / ${p.total}</span>` +
         `<span>${p.fps.toFixed(1)} fps · ${p.elapsed.toFixed(1)}s · ~${remaining.toFixed(1)}s left</span>`;
     } else {
-      status.textContent = 'starting…';
+      status.textContent = state.note || 'starting…';
     }
 
     panel.appendChild(makeButtons([
@@ -368,7 +369,11 @@ export function openExportModal(scene) {
   }
 
   function handleEvent(e) {
-    if (e.type === 'start') {
+    if (e.type === 'transcoding') {
+      state.note = `transcoding ${e.file}…`;
+      render();
+    } else if (e.type === 'start') {
+      state.note = '';
       state.progress = { n: 0, total: e.totalFrames, fps: 0, elapsed: 0 };
       render();
     } else if (e.type === 'frame') {

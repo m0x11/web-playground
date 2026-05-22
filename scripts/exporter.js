@@ -8,8 +8,8 @@
 // scene + same args → byte-identical MP4. See RECORDING.md.
 
 import { mkdirSync, existsSync } from 'node:fs';
-import { dirname, resolve, basename } from 'node:path';
-import { spawn } from 'node:child_process';
+import { dirname, resolve, basename, join } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -26,6 +26,9 @@ export async function exportScene({
 } = {}) {
   if (!sceneJson) throw new Error('exportScene: sceneJson is required');
 
+  // Work on a copy — prepareVideos rewrites video paths to transcoded assets.
+  sceneJson = JSON.parse(JSON.stringify(sceneJson));
+
   const {
     width = 3840,
     height = 2160,
@@ -39,6 +42,9 @@ export async function exportScene({
 
   const outputPath = resolve(output ?? `exports/${safeName(sceneJson.name)}.mp4`);
   mkdirSync(dirname(outputPath), { recursive: true });
+
+  // Headless Chromium can't decode H.264/HEVC — transcode such videos to VP9.
+  await prepareVideos(sceneJson, onProgress, signal);
 
   // ── 1. Vite (start one if not supplied) ────────────────────────────────
   let ownVite = null;
@@ -173,6 +179,82 @@ export async function exportScene({
 
 function safeName(name) {
   return String(name || 'scene').replace(/[^a-z0-9_-]+/gi, '-');
+}
+
+// ── video transcoding ──────────────────────────────────────────────────────
+//
+// Playwright's headless Chromium only decodes open codecs (VP8/VP9/AV1).
+// H.264/HEVC videos play in the GUI's normal Chrome but come up blank in
+// export, so we transcode them to VP9 WebM (cached) and rewrite the scene's
+// video paths. The GUI keeps using the originals.
+
+const CHROMIUM_VIDEO_CODECS = new Set(['vp8', 'vp9', 'av1', 'theora']);
+
+function videoCodec(absPath) {
+  const r = spawnSync('ffprobe', [
+    '-v', 'error', '-select_streams', 'v:0',
+    '-show_entries', 'stream=codec_name', '-of', 'default=nk=1:nw=1', absPath,
+  ], { encoding: 'utf-8' });
+  return (r.stdout || '').trim().toLowerCase();
+}
+
+function transcodeToWebm(srcAbs, destAbs) {
+  return new Promise((resolveDone, rejectDone) => {
+    const ff = spawn('ffmpeg', [
+      '-y', '-i', srcAbs,
+      '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32',
+      '-deadline', 'good', '-cpu-used', '4', '-row-mt', '1',
+      '-an', destAbs,        // Media never plays audio — drop it
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    ff.stderr.on('data', d => { err += d; });
+    ff.on('error', rejectDone);
+    ff.on('close', code => {
+      if (code === 0) resolveDone();
+      else rejectDone(new Error(
+        `Video transcode failed for ${basename(srcAbs)}:\n` +
+        err.split('\n').slice(-8).join('\n')
+      ));
+    });
+  });
+}
+
+async function prepareVideos(sceneJson, onProgress, signal) {
+  const cacheDir = resolve(PROJECT_ROOT, 'assets', '.transcoded');
+  const resolved = new Map();   // original rel path → path to use
+
+  async function resolveVideo(rel) {
+    if (resolved.has(rel)) return resolved.get(rel);
+    let out = rel;
+    const srcAbs = resolve(PROJECT_ROOT, rel);
+    if (existsSync(srcAbs) && !rel.toLowerCase().endsWith('.webm')) {
+      const codec = videoCodec(srcAbs);
+      if (codec && !CHROMIUM_VIDEO_CODECS.has(codec)) {
+        const webmName = basename(rel).replace(/\.[^.]+$/, '') + '.webm';
+        const destAbs = join(cacheDir, webmName);
+        if (!existsSync(destAbs)) {
+          abortable(signal);
+          mkdirSync(cacheDir, { recursive: true });
+          onProgress({ type: 'transcoding', file: basename(rel) });
+          await transcodeToWebm(srcAbs, destAbs);
+        }
+        out = `assets/.transcoded/${webmName}`;
+      }
+    }
+    resolved.set(rel, out);
+    return out;
+  }
+
+  async function walk(node) {
+    if (!node) return;
+    const p = node.props;
+    if (p && (node.component === 'Media' || node.component === 'Image')
+        && p.source === 'video' && typeof p.video === 'string' && p.video) {
+      p.video = await resolveVideo(p.video);
+    }
+    for (const child of node.children ?? []) await walk(child);
+  }
+  await walk(sceneJson.root);
 }
 
 class AbortError extends Error {

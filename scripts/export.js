@@ -103,6 +103,8 @@ async function main() {
           process.stdout.write(`\r  ${e.n}/${totalFrames} (${pct}%) · ${e.fps.toFixed(1)} fps · ${e.elapsed.toFixed(1)}s`);
           lastReport = now;
         }
+      } else if (e.type === 'transcoding') {
+        process.stdout.write(`\n  transcoding ${e.file}…`);
       } else if (e.type === 'encoding') {
         process.stdout.write('\n  finalizing…');
       } else if (e.type === 'done') {
