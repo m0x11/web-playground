@@ -113,6 +113,17 @@ export function createScene({ renderer }) {
     for (const child of node.children ?? []) forEachNode(child, fn);
   }
 
+  // Convert props from older scene versions in place.
+  function migrateLegacyProps() {
+    forEachNode(state.sceneJson?.root, node => {
+      const p = node.props;
+      if (p && 'videoHold' in p && !('videoEnd' in p)) {
+        p.videoEnd = p.videoHold ? 'hold' : 'loop';
+        delete p.videoHold;
+      }
+    });
+  }
+
   // Largest intrinsic duration declared by any component in the tree (e.g.
   // a Media cycle = images × cycleSpeed). Lets a cycle alone make the
   // timeline playable.
@@ -150,6 +161,7 @@ export function createScene({ renderer }) {
     // Normalize canvas to aspect form (handles legacy {width,height} too).
     state.sceneJson.canvas = normalizeCanvas(state.sceneJson.canvas);
     if (!state.sceneJson.background) state.sceneJson.background = '#ffffff';
+    migrateLegacyProps();
     renderer.mount(json);
     const px = pixelsFromAspect(state.sceneJson.canvas);
     renderer.setCanvasSize(px.width, px.height);

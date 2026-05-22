@@ -43,8 +43,9 @@ export const schema = {
       unit: 's', default: 0,
       visibleWhen: { source: 'video' },
     },
-    videoHold: {
-      type: 'boolean', label: 'Hold last frame', default: false,
+    videoEnd: {
+      type: 'enum', label: 'On end',
+      options: ['loop', 'hold', 'ping-pong'], default: 'loop',
       visibleWhen: { source: 'video' },
     },
     images: {
@@ -229,11 +230,21 @@ export function mount(el, props, _ctx) {
     const dur = videoEl.duration;
     if (!Number.isFinite(dur) || dur <= 0) return;
     const raw = Math.max(0, current.videoStart ?? 0) + t;
-    // Hold just shy of the exact end — seeking to currentTime === duration is
-    // an unreliable edge; dur - 0.05 lands firmly on the final frame.
-    const target = current.videoHold
-      ? Math.min(raw, Math.max(0, dur - 0.05))
-      : (raw % dur);
+    // Stay just shy of the exact end — seeking to currentTime === duration is
+    // an unreliable edge.
+    const top = Math.max(0.05, dur - 0.05);
+    // `videoHold` is the legacy boolean; videoEnd supersedes it.
+    const mode = current.videoEnd ?? (current.videoHold ? 'hold' : 'loop');
+    let target;
+    if (mode === 'hold') {
+      target = Math.min(raw, top);
+    } else if (mode === 'ping-pong') {
+      const period = 2 * top;
+      const pos = raw % period;
+      target = pos < top ? pos : period - pos;   // triangle wave 0↔top
+    } else {
+      target = raw % dur;
+    }
     if (Math.abs(videoEl.currentTime - target) > 0.005) {
       videoEl.currentTime = target;
       trackSeek(videoSeek(videoEl, target));
