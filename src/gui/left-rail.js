@@ -40,6 +40,9 @@ export function mountLeftRail(el, scene) {
       return;
     }
     renderNode(tree, root, 0);
+    // Keep the selected row visible — e.g. when selection came from a click
+    // on the canvas rather than the tree.
+    tree.querySelector('.tree-row--selected')?.scrollIntoView({ block: 'nearest' });
   }
 
   function renderNode(parent, node, depth) {
