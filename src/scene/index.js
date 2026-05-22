@@ -262,6 +262,7 @@ export function createScene({ renderer }) {
   function selectedId() { return state.selectedId; }
   function getNode(id) { return findNode(state.sceneJson?.root, id); }
   function getRootNode() { return state.sceneJson?.root ?? null; }
+  function getEl(id) { return renderer.getEl(id); }
   function getFullProps(id) {
     const node = getNode(id);
     return node ? fullPropsFor(node) : null;
@@ -562,7 +563,7 @@ export function createScene({ renderer }) {
     loadScene, setTime, play, pause, playing, time,
     duration, getDuration, setDuration,
     ready, framePainted, setSize, hideGUI, on,
-    select, selectedId, getNode, getRootNode, getFullProps, getParentNode,
+    select, selectedId, getNode, getRootNode, getFullProps, getParentNode, getEl,
     updateProps, updateLayout, addNode, removeNode, duplicateNode,
     moveNode, isAncestor,
     addAnimation, removeAnimation, updateAnimation,

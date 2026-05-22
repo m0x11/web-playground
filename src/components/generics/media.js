@@ -37,8 +37,14 @@ export const schema = {
       visibleWhen: { source: 'video' },
     },
     videoStart: {
-      type: 'number', label: 'Start at', min: 0, max: 600, step: 0.1,
+      // `max` is a fallback — the right-rail replaces it with the actual
+      // video duration once metadata loads.
+      type: 'number', label: 'Start at', min: 0, max: 60, step: 0.1,
       unit: 's', default: 0,
+      visibleWhen: { source: 'video' },
+    },
+    videoHold: {
+      type: 'boolean', label: 'Hold last frame', default: false,
       visibleWhen: { source: 'video' },
     },
     images: {
@@ -122,6 +128,7 @@ export function mount(el, props, _ctx) {
   let cycleImgs = [];
   let cycleKey = '';      // signature of the current images list
   let current = { ...props };
+  let lastTime = 0;       // last scene time seen — lets apply() re-seek video
 
   function apply(p) {
     current = { ...p };
@@ -148,9 +155,11 @@ export function mount(el, props, _ctx) {
         if (videoEl.src !== absolute(url)) {
           videoEl.src = url;
           trackLoad(videoMetadata(videoEl));
+          videoEl.addEventListener('loadedmetadata', () => syncVideo(lastTime), { once: true });
         }
         videoEl.style.objectFit = p.fit;
         show(videoEl, true);
+        syncVideo(lastTime);   // reflect videoStart / current time immediately
       } else {
         showPlaceholder('no video');
       }
@@ -199,6 +208,7 @@ export function mount(el, props, _ctx) {
 
   // Time-driven update — cycle frame selection + video seek.
   function onTime(t) {
+    lastTime = t;
     if (current.source === 'cycle' && cycleImgs.length > 0) {
       const speed = Math.max(0.001, current.cycleSpeed ?? 0.5);
       const start = Math.max(0, Math.round(current.cycleStart ?? 0));
@@ -207,16 +217,26 @@ export function mount(el, props, _ctx) {
       cycleImgs.forEach((im, i) => {
         im.style.display = i === idx ? 'block' : 'none';
       });
-    } else if (current.source === 'video' && videoEl.src) {
-      const dur = videoEl.duration;
-      if (Number.isFinite(dur) && dur > 0) {
-        const startAt = Math.max(0, current.videoStart ?? 0);
-        const target = (startAt + t) % dur;
-        if (Math.abs(videoEl.currentTime - target) > 0.005) {
-          videoEl.currentTime = target;
-          trackSeek(videoSeek(videoEl, target));
-        }
-      }
+    } else if (current.source === 'video') {
+      syncVideo(t);
+    }
+  }
+
+  // Seek the video to the frame for scene time `t`: begins `videoStart`
+  // seconds in, then loops — or, with videoHold, clamps to the final frame.
+  function syncVideo(t) {
+    if (current.source !== 'video' || !videoEl.src) return;
+    const dur = videoEl.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    const raw = Math.max(0, current.videoStart ?? 0) + t;
+    // Hold just shy of the exact end — seeking to currentTime === duration is
+    // an unreliable edge; dur - 0.05 lands firmly on the final frame.
+    const target = current.videoHold
+      ? Math.min(raw, Math.max(0, dur - 0.05))
+      : (raw % dur);
+    if (Math.abs(videoEl.currentTime - target) > 0.005) {
+      videoEl.currentTime = target;
+      trackSeek(videoSeek(videoEl, target));
     }
   }
 

@@ -80,12 +80,31 @@ export function mountRightRail(el, scene) {
 
       const willChangeVisibility = watchersOf(propKey, schemaProps);
 
-      const control = createControl(propKey, propSchema, fullProps[propKey], v => {
+      let effSchema = propSchema;
+      if (Comp.schema.name === 'Media' && propKey === 'videoStart') {
+        effSchema = videoStartSchema(id, propSchema);
+      }
+
+      const control = createControl(propKey, effSchema, fullProps[propKey], v => {
         scene.updateProps(id, { [propKey]: v });
         if (willChangeVisibility) renderProps();
       });
       propsBody.appendChild(control);
     }
+  }
+
+  // Bound the videoStart slider to the actual video's duration. Metadata
+  // loads async — if it's not ready, re-render once it is.
+  function videoStartSchema(id, base) {
+    const videoEl = scene.getEl(id)?.querySelector('video');
+    const dur = videoEl?.duration;
+    if (Number.isFinite(dur) && dur > 0) {
+      return { ...base, max: Math.max(base.min ?? 0, Math.round(dur * 10) / 10) };
+    }
+    if (videoEl) {
+      videoEl.addEventListener('loadedmetadata', () => renderProps(), { once: true });
+    }
+    return base;
   }
 
   // Layout section — shown only when the selected node's parent is a
