@@ -11,6 +11,7 @@ import { mountRightRail } from './gui/right-rail.js';
 import { mountTimelineBar } from './gui/timeline-bar.js';
 import { mountMediaDrop } from './gui/media-drop.js';
 import { mountCanvasSelect } from './gui/canvas-select.js';
+import { mountMediaSwap } from './gui/media-swap.js';
 import { mountAutosave, loadAutosave } from './scene/persistence.js';
 
 const scene = createScene({ renderer });
@@ -20,6 +21,7 @@ mountRightRail(document.getElementById('right-rail'), scene);
 mountTimelineBar(document.getElementById('timeline-bar'), scene);
 mountMediaDrop(scene);
 mountCanvasSelect(scene);
+mountMediaSwap(scene);
 
 // Starter scene — a single Grid. Adjust its props from the right rail.
 const STARTER_SCENE = {

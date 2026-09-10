@@ -59,6 +59,32 @@
   outline-offset: -3px;
 }
 
+/* Drag-to-swap between Media cells (media-swap.js). */
+.scene-node.media-swap-source { opacity: 0.4; }
+.scene-node.media-swap-target {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+}
+body.media-swap-dragging,
+body.media-swap-dragging * { cursor: grabbing !important; user-select: none; }
+.media-swap-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  width: 120px; height: 120px;
+  pointer-events: none;
+  z-index: 1000;
+  border: 2px solid var(--accent);
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+.media-swap-ghost img,
+.media-swap-ghost video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* Export mode: hide all GUI chrome, let the scene fill the entire viewport.
    The canvas is fit-scaled to viewport — so a 1920×1080 canvas exported at
    3840×2160 displays at a clean 2× scale. */

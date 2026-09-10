@@ -299,6 +299,20 @@ export function createScene({ renderer }) {
     emit('node-updated', { id, props: node.props });
   }
 
+  // Swap the *contents* of two nodes: their props move across, while ids,
+  // tree position, layout (spans) and animations stay put. Used by the
+  // canvas drag-to-swap gesture (drag a Media cell onto another).
+  function swapProps(idA, idB) {
+    if (idA === idB) return;
+    const a = getNode(idA), b = getNode(idB);
+    if (!a || !b || a.component !== b.component) return;
+    [a.props, b.props] = [{ ...(b.props ?? {}) }, { ...(a.props ?? {}) }];
+    renderer.patch(idA, fullPropsFor(a));
+    renderer.patch(idB, fullPropsFor(b));
+    emit('node-updated', { id: idA, props: a.props });
+    emit('node-updated', { id: idB, props: b.props });
+  }
+
   // Per-node layout (cell width / aspect within a freeform parent). Stored on
   // node.layout; the layout-owning parent reads it. Re-patch the parent so it
   // re-applies child cell styling.
@@ -582,7 +596,7 @@ export function createScene({ renderer }) {
     duration, getDuration, setDuration,
     ready, framePainted, setSize, hideGUI, on,
     select, selectedId, getNode, getRootNode, getFullProps, getParentNode, getEl,
-    updateProps, updateLayout, addNode, removeNode, duplicateNode,
+    updateProps, swapProps, updateLayout, addNode, removeNode, duplicateNode,
     moveNode, isAncestor,
     addAnimation, removeAnimation, updateAnimation,
     listAnimations, listAnimationsForTarget, applyAnimationToSiblings,
