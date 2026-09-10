@@ -11,6 +11,7 @@ import { mountRightRail } from './gui/right-rail.js';
 import { mountTimelineBar } from './gui/timeline-bar.js';
 import { mountMediaDrop } from './gui/media-drop.js';
 import { mountCanvasSelect } from './gui/canvas-select.js';
+import { mountAutosave, loadAutosave } from './scene/persistence.js';
 
 const scene = createScene({ renderer });
 
@@ -20,8 +21,8 @@ mountTimelineBar(document.getElementById('timeline-bar'), scene);
 mountMediaDrop(scene);
 mountCanvasSelect(scene);
 
-// Phase 1 demo scene — a single Grid. Adjust its props from the right rail.
-scene.loadScene({
+// Starter scene — a single Grid. Adjust its props from the right rail.
+const STARTER_SCENE = {
   version: 1,
   name: 'phase-1-grid',
   duration: 0,
@@ -32,6 +33,11 @@ scene.loadScene({
     children: [],
   },
   animations: [],
-});
+};
+
+// Resume the autosaved working scene if there is one, else the starter.
+// Every subsequent mutation is mirrored back to localStorage.
+scene.loadScene(loadAutosave() ?? STARTER_SCENE);
+mountAutosave(scene);
 
 window.__scene = scene;

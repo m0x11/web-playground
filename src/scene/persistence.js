@@ -3,9 +3,86 @@
 // File I/O uses the FileSystem Access API where available (Chrome/Edge),
 // falling back to download + file-input on browsers that don't support it.
 //
+// Autosave: the working scene is mirrored into localStorage after every
+// mutation (debounced) and flushed on pagehide, so a refresh or accidental
+// tab close picks up where you left off. Assets live on disk under assets/,
+// so the JSON alone is enough to restore the scene.
+//
 // See SCENE_FORMAT.md for the v1 schema and validation rules.
 
 import { getComponent, isKnownComponent } from '../components/index.js';
+
+const AUTOSAVE_KEY = 'web-playground:autosave:v1';
+const AUTOSAVE_DEBOUNCE_MS = 250;
+
+// Scene events that change what serialize() returns. (Time, play state and
+// selection are transient and not persisted.)
+const MUTATION_EVENTS = [
+  'scene-loaded',
+  'node-updated',
+  'scene-tree-changed',
+  'scene-name-changed',
+  'animations-changed',
+  'animation-updated',
+  'scene-canvas-changed',
+  'scene-background-changed',
+];
+
+// Mirror the scene into localStorage on every mutation. Returns a disposer.
+export function mountAutosave(scene) {
+  let timer = null;
+
+  function save() {
+    timer = null;
+    try {
+      const json = scene.serialize();
+      if (json) localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(json));
+    } catch (err) {
+      console.warn('autosave failed:', err);
+    }
+  }
+
+  function schedule() {
+    if (timer != null) clearTimeout(timer);
+    timer = setTimeout(save, AUTOSAVE_DEBOUNCE_MS);
+  }
+
+  function flush() {
+    if (timer != null) { clearTimeout(timer); save(); }
+  }
+
+  const offs = MUTATION_EVENTS.map(ev => scene.on(ev, schedule));
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('visibilitychange', flush);
+
+  return () => {
+    flush();
+    for (const off of offs) off();
+    window.removeEventListener('pagehide', flush);
+    window.removeEventListener('visibilitychange', flush);
+  };
+}
+
+// The last autosaved scene, or null if there is none or it fails validation
+// (e.g. it references a component that no longer exists).
+export function loadAutosave() {
+  let raw;
+  try { raw = localStorage.getItem(AUTOSAVE_KEY); }
+  catch { return null; }
+  if (!raw) return null;
+  try {
+    const json = JSON.parse(raw);
+    validateScene(json);
+    return json;
+  } catch (err) {
+    console.warn('discarding autosaved scene:', err);
+    return null;
+  }
+}
+
+export function clearAutosave() {
+  try { localStorage.removeItem(AUTOSAVE_KEY); } catch { /* ignore */ }
+}
 
 const SCENE_FILE_TYPES = [
   { description: 'Scene', accept: { 'application/json': ['.json'] } },

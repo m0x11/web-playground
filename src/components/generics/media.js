@@ -13,6 +13,17 @@
 //
 // Cycle uses one preloaded <img> per image (stacked, visibility-toggled) so a
 // frame switch is instant — no src swap, no decode latency mid-export.
+//
+// Layout: each media element is sized to its *fitted content* size (cover /
+// contain / none computed from the natural dimensions and the cell box), and
+// centered; the cell's overflow:hidden does the cropping. object-fit is NOT
+// used to crop, because object-fit crops inside the element box, and panning
+// that box would just slide the crop window off the cell (blank space on one
+// side) instead of revealing more of the picture. With the element equal to
+// the content, pan / zoom / rotate act on the picture itself, so a cover- or
+// none-fitted video larger than the cell can be panned around freely.
+// Until natural dimensions are known the element falls back to the cell box
+// with object-fit, and re-lays out on load / resize.
 
 import { assetUrl } from '../../scene/assets.js';
 import { trackLoad, trackSeek, imageLoad, videoMetadata, videoSeek }
@@ -79,6 +90,9 @@ export const schema = {
     offsetY: {
       type: 'number', label: 'Pan Y', min: -100, max: 100, step: 1, unit: '%', default: 0,
     },
+    rotate: {
+      type: 'number', label: 'Rotate', min: -180, max: 180, step: 1, unit: '°', default: 0,
+    },
   },
 };
 
@@ -130,6 +144,21 @@ export function mount(el, props, _ctx) {
   let cycleKey = '';      // signature of the current images list
   let current = { ...props };
   let lastTime = 0;       // last scene time seen — lets apply() re-seek video
+  let box = { w: 0, h: 0 };   // cell content box (fractional, from the RO)
+
+  // Natural dimensions arrive asynchronously — re-lay out when they do.
+  // Registered before any src is set so these run first on load.
+  imgEl.addEventListener('load', layout);
+  videoEl.addEventListener('loadedmetadata', layout);
+
+  // Fitted sizes depend on the cell box — re-lay out whenever it changes
+  // (grid resize, canvas aspect change, …).
+  const ro = new ResizeObserver(entries => {
+    const r = entries[entries.length - 1].contentRect;
+    box = { w: r.width, h: r.height };
+    layout();
+  });
+  ro.observe(el);
 
   function apply(p) {
     current = { ...p };
@@ -144,7 +173,6 @@ export function mount(el, props, _ctx) {
       const url = assetUrl(p.image);
       if (url) {
         if (imgEl.src !== absolute(url)) imgEl.src = url;
-        imgEl.style.objectFit = p.fit;
         trackLoad(imageLoad(imgEl));
         show(imgEl, true);
       } else {
@@ -158,7 +186,6 @@ export function mount(el, props, _ctx) {
           trackLoad(videoMetadata(videoEl));
           videoEl.addEventListener('loadedmetadata', () => syncVideo(lastTime), { once: true });
         }
-        videoEl.style.objectFit = p.fit;
         show(videoEl, true);
         syncVideo(lastTime);   // reflect videoStart / current time immediately
       } else {
@@ -170,17 +197,39 @@ export function mount(el, props, _ctx) {
       else showPlaceholder('no images');
     }
 
-    applyTransform(p);
+    layout();
   }
 
-  // Zoom + pan the media within its cell. The cell has overflow:hidden, so
-  // zoom > 1 crops. Applied to all three element types uniformly.
-  function applyTransform(p) {
-    const tf = `translate(${p.offsetX ?? 0}%, ${p.offsetY ?? 0}%) scale(${p.zoom ?? 1})`;
-    for (const node of [imgEl, videoEl, cycleLayer]) {
-      node.style.transform = tf;
-      node.style.transformOrigin = 'center center';
+  // Size each media element to its fitted content and apply pan / rotate /
+  // zoom. Transform order (left → right): center the element on the cell,
+  // pan (in % of the content's own size, along the cell's axes), rotate
+  // about the content center, then zoom. The cell's overflow:hidden crops.
+  function layout() {
+    const p = current;
+    const tf =
+      `translate(-50%, -50%) ` +
+      `translate(${p.offsetX ?? 0}%, ${p.offsetY ?? 0}%) ` +
+      `rotate(${p.rotate ?? 0}deg) ` +
+      `scale(${p.zoom ?? 1})`;
+    place(imgEl, imgEl.naturalWidth, imgEl.naturalHeight, p.fit, tf);
+    place(videoEl, videoEl.videoWidth, videoEl.videoHeight, p.fit, tf);
+    for (const im of cycleImgs) place(im, im.naturalWidth, im.naturalHeight, p.fit, tf);
+  }
+
+  function place(node, natW, natH, fit, tf) {
+    const size = fitSize(natW, natH, box.w, box.h, fit);
+    if (size) {
+      node.style.width = `${size.w}px`;
+      node.style.height = `${size.h}px`;
+      node.style.objectFit = 'fill';     // box already has the content's shape
+    } else {
+      // Dimensions unknown yet — fall back to the cell box + object-fit.
+      node.style.width = '100%';
+      node.style.height = '100%';
+      node.style.objectFit = fit;
     }
+    node.style.transform = tf;
+    node.style.transformOrigin = 'center center';
   }
 
   function rebuildCycle(p) {
@@ -194,12 +243,12 @@ export function mount(el, props, _ctx) {
         im.src = url;
         im.style.cssText = baseMediaCss();
         im.style.display = i === 0 ? 'block' : 'none';
+        im.addEventListener('load', layout);
         trackLoad(imageLoad(im));
         cycleLayer.appendChild(im);
         return im;
       });
     }
-    for (const im of cycleImgs) im.style.objectFit = p.fit;
   }
 
   function showPlaceholder(text) {
@@ -257,6 +306,7 @@ export function mount(el, props, _ctx) {
     onTime,
     patch(nextProps) { apply(nextProps); },
     unmount() {
+      ro.disconnect();
       el.classList.remove('gen-media');
       videoEl.removeAttribute('src');
       el.innerHTML = '';
@@ -266,7 +316,21 @@ export function mount(el, props, _ctx) {
 }
 
 function baseMediaCss() {
-  return 'position:absolute;inset:0;width:100%;height:100%;display:block;';
+  // Anchored at the cell center; layout() sets width/height and the
+  // translate(-50%,-50%) that completes the centering.
+  return 'position:absolute;left:50%;top:50%;width:100%;height:100%;' +
+    'display:block;max-width:none;max-height:none;';
+}
+
+// Content box for `fit`, or null when dimensions aren't known yet.
+function fitSize(natW, natH, boxW, boxH, fit) {
+  if (!(natW > 0 && natH > 0 && boxW > 0 && boxH > 0)) return null;
+  if (fit === 'fill') return { w: boxW, h: boxH };
+  if (fit === 'none') return { w: natW, h: natH };
+  const s = fit === 'contain'
+    ? Math.min(boxW / natW, boxH / natH)
+    : Math.max(boxW / natW, boxH / natH);   // cover
+  return { w: natW * s, h: natH * s };
 }
 
 function show(node, on) {
