@@ -24,6 +24,12 @@
 // none-fitted video larger than the cell can be panned around freely.
 // Until natural dimensions are known the element falls back to the cell box
 // with object-fit, and re-lays out on load / resize.
+//
+// Grading: exposure / contrast / saturation / hue / blur map straight onto
+// CSS filter functions. Temperature and tint (colour balance) have no CSS
+// function, so each instance owns a tiny inline <svg><filter> with an
+// feColorMatrix that scales the R/G/B channels; the filter chain references
+// it by id. All of it is plain DOM/CSS, so headless export renders it too.
 
 import { assetUrl } from '../../scene/assets.js';
 import { trackLoad, trackSeek, imageLoad, videoMetadata, videoSeek }
@@ -93,8 +99,33 @@ export const schema = {
     rotate: {
       type: 'number', label: 'Rotate', min: -180, max: 180, step: 1, unit: '°', default: 0,
     },
+    // ── color grading (CSS filter + SVG colour matrix for balance) ──
+    exposure: {
+      type: 'number', label: 'Exposure', min: 0, max: 3, step: 0.01, default: 1,
+    },
+    contrast: {
+      type: 'number', label: 'Contrast', min: 0, max: 3, step: 0.01, default: 1,
+    },
+    saturation: {
+      type: 'number', label: 'Saturation', min: 0, max: 3, step: 0.01, default: 1,
+    },
+    hue: {
+      type: 'number', label: 'Hue', min: -180, max: 180, step: 1, unit: '°', default: 0,
+    },
+    temperature: {
+      type: 'number', label: 'Temperature', min: -100, max: 100, step: 1, default: 0,
+    },
+    tint: {
+      type: 'number', label: 'Tint', min: -100, max: 100, step: 1, default: 0,
+    },
+    blur: {
+      type: 'number', label: 'Blur', min: 0, max: 100, step: 0.5, unit: 'px', default: 0,
+    },
   },
 };
+
+// Unique id per mounted instance for its SVG colour-balance filter.
+let instanceCounter = 0;
 
 // How much scene time this component intrinsically needs. The scene's
 // duration() takes the max across the tree, so a cycle alone makes the
@@ -137,7 +168,22 @@ export function mount(el, props, _ctx) {
     'border:1px dashed rgba(0,0,0,0.25);color:rgba(0,0,0,0.45);' +
     'font-family:var(--font-mono);font-size:13px;box-sizing:border-box;';
 
-  el.append(imgEl, videoEl, cycleLayer, placeholder);
+  // Per-instance colour-balance filter (temperature / tint).
+  const balanceId = `gen-media-balance-${++instanceCounter}`;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', '0');
+  svg.setAttribute('height', '0');
+  svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+  const filterEl = document.createElementNS(svgNS, 'filter');
+  filterEl.setAttribute('id', balanceId);
+  filterEl.setAttribute('color-interpolation-filters', 'sRGB');
+  const matrixEl = document.createElementNS(svgNS, 'feColorMatrix');
+  matrixEl.setAttribute('type', 'matrix');
+  filterEl.appendChild(matrixEl);
+  svg.appendChild(filterEl);
+
+  el.append(svg, imgEl, videoEl, cycleLayer, placeholder);
 
   // cycle state: one <img> per source image.
   let cycleImgs = [];
@@ -211,12 +257,33 @@ export function mount(el, props, _ctx) {
       `translate(${p.offsetX ?? 0}%, ${p.offsetY ?? 0}%) ` +
       `rotate(${p.rotate ?? 0}deg) ` +
       `scale(${p.zoom ?? 1})`;
-    place(imgEl, imgEl.naturalWidth, imgEl.naturalHeight, p.fit, tf);
-    place(videoEl, videoEl.videoWidth, videoEl.videoHeight, p.fit, tf);
-    for (const im of cycleImgs) place(im, im.naturalWidth, im.naturalHeight, p.fit, tf);
+    const filter = gradingFilter(p);
+    place(imgEl, imgEl.naturalWidth, imgEl.naturalHeight, p.fit, tf, filter);
+    place(videoEl, videoEl.videoWidth, videoEl.videoHeight, p.fit, tf, filter);
+    for (const im of cycleImgs) place(im, im.naturalWidth, im.naturalHeight, p.fit, tf, filter);
   }
 
-  function place(node, natW, natH, fit, tf) {
+  // CSS filter chain for the grading props. Temperature / tint go through
+  // the instance's SVG colour matrix; it's only referenced when non-zero so
+  // the common case stays a pure CSS filter (or none at all).
+  function gradingFilter(p) {
+    const parts = [];
+    const exposure = p.exposure ?? 1, contrast = p.contrast ?? 1;
+    const saturation = p.saturation ?? 1, hue = p.hue ?? 0, blur = p.blur ?? 0;
+    const temperature = p.temperature ?? 0, tint = p.tint ?? 0;
+    if (exposure !== 1) parts.push(`brightness(${exposure})`);
+    if (contrast !== 1) parts.push(`contrast(${contrast})`);
+    if (saturation !== 1) parts.push(`saturate(${saturation})`);
+    if (hue !== 0) parts.push(`hue-rotate(${hue}deg)`);
+    if (temperature !== 0 || tint !== 0) {
+      matrixEl.setAttribute('values', balanceMatrix(temperature / 100, tint / 100));
+      parts.push(`url(#${balanceId})`);
+    }
+    if (blur > 0) parts.push(`blur(${blur}px)`);
+    return parts.length ? parts.join(' ') : '';
+  }
+
+  function place(node, natW, natH, fit, tf, filter) {
     const size = fitSize(natW, natH, box.w, box.h, fit);
     if (size) {
       node.style.width = `${size.w}px`;
@@ -230,6 +297,7 @@ export function mount(el, props, _ctx) {
     }
     node.style.transform = tf;
     node.style.transformOrigin = 'center center';
+    node.style.filter = filter;
   }
 
   function rebuildCycle(p) {
@@ -320,6 +388,23 @@ function baseMediaCss() {
   // translate(-50%,-50%) that completes the centering.
   return 'position:absolute;left:50%;top:50%;width:100%;height:100%;' +
     'display:block;max-width:none;max-height:none;';
+}
+
+// feColorMatrix for colour balance. `t` (temperature) and `g` (tint) are in
+// [-1, 1]. Warm = more red / less blue; cool = the reverse. Positive tint
+// pushes green, negative pushes magenta (less green, a touch more R+B).
+// Gains are ±35% at the extremes — strong enough to be a look, not a wreck.
+function balanceMatrix(t, g) {
+  const K = 0.35;
+  const r = 1 + K * t - K * 0.5 * g;
+  const gg = 1 + K * g;
+  const b = 1 - K * t - K * 0.5 * g;
+  return [
+    r, 0, 0, 0, 0,
+    0, gg, 0, 0, 0,
+    0, 0, b, 0, 0,
+    0, 0, 0, 1, 0,
+  ].map(v => +v.toFixed(4)).join(' ');
 }
 
 // Content box for `fit`, or null when dimensions aren't known yet.
