@@ -9,7 +9,8 @@
 // scene time `t` (via the onTime hook), never wall-clock. So GUI playback,
 // timeline scrubbing, and 4K export all agree frame-for-frame.
 //   cycle: index = floor(t / cycleSpeed) % n
-//   video: currentTime = t % duration
+//   video: currentTime = start + (t % (end - start))  — loops the
+//          [videoStart, videoStop] segment (videoStop 0 → natural end)
 //
 // Cycle uses one preloaded <img> per image (stacked, visibility-toggled) so a
 // frame switch is instant — no src swap, no decode latency mid-export.
@@ -57,6 +58,13 @@ export const schema = {
       // `max` is a fallback — the right-rail replaces it with the actual
       // video duration once metadata loads.
       type: 'number', label: 'Start at', min: 0, max: 60, step: 0.1,
+      unit: 's', default: 0,
+      visibleWhen: { source: 'video' },
+    },
+    videoStop: {
+      // 0 (or anything ≤ videoStart) means "the natural end of the video".
+      // As with videoStart, the right-rail rebounds `max` to the duration.
+      type: 'number', label: 'End at', min: 0, max: 60, step: 0.1,
       unit: 's', default: 0,
       visibleWhen: { source: 'video' },
     },
@@ -340,27 +348,34 @@ export function mount(el, props, _ctx) {
     }
   }
 
-  // Seek the video to the frame for scene time `t`: begins `videoStart`
-  // seconds in, then loops — or, with videoHold, clamps to the final frame.
+  // Seek the video to the frame for scene time `t`. Playback is confined to
+  // the segment [videoStart, videoStop] (videoStop ≤ videoStart → natural
+  // end): loop wraps back to videoStart, hold clamps at videoStop, ping-pong
+  // bounces between the two.
   function syncVideo(t) {
     if (current.source !== 'video' || !videoEl.src) return;
     const dur = videoEl.duration;
     if (!Number.isFinite(dur) || dur <= 0) return;
-    const raw = Math.max(0, current.videoStart ?? 0) + t;
     // Stay just shy of the exact end — seeking to currentTime === duration is
     // an unreliable edge.
     const top = Math.max(0.05, dur - 0.05);
+    const start = Math.min(top, Math.max(0, current.videoStart ?? 0));
+    const stop = current.videoStop ?? 0;
+    const end = stop > start ? Math.min(stop, top) : top;
+    const span = end - start;
     // `videoHold` is the legacy boolean; videoEnd supersedes it.
     const mode = current.videoEnd ?? (current.videoHold ? 'hold' : 'loop');
     let target;
-    if (mode === 'hold') {
-      target = Math.min(raw, top);
+    if (span <= 0.001) {
+      target = start;
+    } else if (mode === 'hold') {
+      target = Math.min(start + t, end);
     } else if (mode === 'ping-pong') {
-      const period = 2 * top;
-      const pos = raw % period;
-      target = pos < top ? pos : period - pos;   // triangle wave 0↔top
+      const period = 2 * span;
+      const pos = t % period;
+      target = start + (pos < span ? pos : period - pos);   // triangle wave start↔end
     } else {
-      target = raw % dur;
+      target = start + (t % span);
     }
     if (Math.abs(videoEl.currentTime - target) > 0.005) {
       videoEl.currentTime = target;

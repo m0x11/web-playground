@@ -81,11 +81,14 @@ export function mountRightRail(el, scene) {
       const willChangeVisibility = watchersOf(propKey, schemaProps);
 
       let effSchema = propSchema;
-      if (Comp.schema.name === 'Media' && propKey === 'videoStart') {
-        effSchema = videoStartSchema(id, propSchema);
+      let value = fullProps[propKey];
+      if (Comp.schema.name === 'Media' && (propKey === 'videoStart' || propKey === 'videoStop')) {
+        effSchema = videoBoundSchema(id, propSchema);
+        // videoStop 0 means "natural end" — show it at the end of the slider.
+        if (propKey === 'videoStop' && !(value > 0)) value = effSchema.max;
       }
 
-      const control = createControl(propKey, effSchema, fullProps[propKey], v => {
+      const control = createControl(propKey, effSchema, value, v => {
         scene.updateProps(id, { [propKey]: v });
         if (willChangeVisibility) renderProps();
       });
@@ -93,9 +96,9 @@ export function mountRightRail(el, scene) {
     }
   }
 
-  // Bound the videoStart slider to the actual video's duration. Metadata
-  // loads async — if it's not ready, re-render once it is.
-  function videoStartSchema(id, base) {
+  // Bound the videoStart / videoStop sliders to the actual video's duration.
+  // Metadata loads async — if it's not ready, re-render once it is.
+  function videoBoundSchema(id, base) {
     const videoEl = scene.getEl(id)?.querySelector('video');
     const dur = videoEl?.duration;
     if (Number.isFinite(dur) && dur > 0) {
