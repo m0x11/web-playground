@@ -129,6 +129,9 @@ export const schema = {
     blur: {
       type: 'number', label: 'Blur', min: 0, max: 100, step: 0.5, unit: 'px', default: 0,
     },
+    invert: {
+      type: 'boolean', label: 'Invert', default: false,
+    },
   },
 };
 
@@ -293,6 +296,9 @@ export function mount(el, props, _ctx) {
       parts.push(`url(#${balanceId})`);
     }
     if (blur > 0) parts.push(`blur(${blur}px)`);
+    // Last, so it negates the graded result (what you'd expect from an
+    // "invert" toggle on top of a look).
+    if (p.invert) parts.push('invert(1)');
     return parts.length ? parts.join(' ') : '';
   }
 
