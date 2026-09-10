@@ -65,7 +65,7 @@ export async function exportScene({
     abortable(signal);
 
     // ── 2. Browser ──────────────────────────────────────────────────────
-    browser = await chromium.launch({ headless: !headed });
+    browser = await launchBrowser({ headless: !headed });
     const context = await browser.newContext({
       viewport: { width, height },
       deviceScaleFactor: 1,
@@ -266,3 +266,28 @@ function abortable(signal) {
 }
 
 export { AbortError };
+
+// Playwright's bundled Chromium is the default (installed once with
+// `npx playwright install chromium`). If it isn't there — fresh machine, or
+// a Playwright upgrade that wants a newer build — fall back to the system
+// Google Chrome so exports keep working, and say so.
+async function launchBrowser(opts) {
+  try {
+    return await chromium.launch(opts);
+  } catch (err) {
+    const missing = /Executable doesn't exist|playwright install/i.test(err?.message ?? '');
+    if (!missing) throw err;
+    console.warn(
+      '[export] Playwright\'s bundled Chromium is not installed — falling back to ' +
+      'Google Chrome. Run `npx playwright install chromium` for the bundled build.'
+    );
+    try {
+      return await chromium.launch({ ...opts, channel: 'chrome' });
+    } catch (err2) {
+      throw new Error(
+        'No browser available for export. Run `npx playwright install chromium` ' +
+        `(bundled) or install Google Chrome. (${err2.message.split('\n')[0]})`
+      );
+    }
+  }
+}
