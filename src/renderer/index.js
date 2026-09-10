@@ -143,9 +143,10 @@ export const renderer = {
   // Per-frame tick. Animations are applied separately (via the timeline);
   // this notifies any component that declared an onTime(t) hook — time-driven
   // components like Media in cycle/video mode.
-  update(t) {
+  // `info.live` is true during real-time GUI playback (see scene.setTime).
+  update(t, info = { live: false }) {
     for (const { instance } of nodes.values()) {
-      instance.onTime?.(t);
+      instance.onTime?.(t, info);
     }
   },
 

@@ -135,6 +135,10 @@ export const schema = {
 // Unique id per mounted instance for its SVG colour-balance filter.
 let instanceCounter = 0;
 
+// Live-playback drift tolerances (seconds) — see syncVideo.
+const LIVE_AHEAD_TOLERANCE = 0.1;
+const LIVE_BEHIND_TOLERANCE = 0.3;
+
 // How much scene time this component intrinsically needs. The scene's
 // duration() takes the max across the tree, so a cycle alone makes the
 // timeline playable. One full cycle = images.length × cycleSpeed.
@@ -161,7 +165,7 @@ export function mount(el, props, _ctx) {
 
   const videoEl = document.createElement('video');
   videoEl.muted = true;
-  videoEl.loop = true;
+  videoEl.loop = false;        // segment looping is done by syncVideo
   videoEl.playsInline = true;
   videoEl.preload = 'auto';
   videoEl.style.cssText = baseMediaCss();
@@ -198,6 +202,7 @@ export function mount(el, props, _ctx) {
   let cycleKey = '';      // signature of the current images list
   let current = { ...props };
   let lastTime = 0;       // last scene time seen — lets apply() re-seek video
+  let live = false;       // real-time GUI playback (see onTime)
   let box = { w: 0, h: 0 };   // cell content box (fractional, from the RO)
 
   // Natural dimensions arrive asynchronously — re-lay out when they do.
@@ -332,9 +337,11 @@ export function mount(el, props, _ctx) {
     show(placeholder, true);
   }
 
-  // Time-driven update — cycle frame selection + video seek.
-  function onTime(t) {
+  // Time-driven update — cycle frame selection + video seek. `info.live`
+  // marks real-time GUI playback (vs scrub / export frames).
+  function onTime(t, info) {
     lastTime = t;
+    live = !!info?.live;
     if (current.source === 'cycle' && cycleImgs.length > 0) {
       const speed = Math.max(0.001, current.cycleSpeed ?? 0.5);
       const start = Math.max(0, Math.round(current.cycleStart ?? 0));
@@ -348,10 +355,27 @@ export function mount(el, props, _ctx) {
     }
   }
 
+  // Native playback bookkeeping for live mode.
+  function playVideo() {
+    if (!videoEl.paused) return;
+    const p = videoEl.play();
+    if (p?.catch) p.catch(() => { /* autoplay refused — seeks still work */ });
+  }
+  function pauseVideo() {
+    if (!videoEl.paused) videoEl.pause();
+  }
+
   // Seek the video to the frame for scene time `t`. Playback is confined to
   // the segment [videoStart, videoStop] (videoStop ≤ videoStart → natural
   // end): loop wraps back to videoStart, hold clamps at videoStop, ping-pong
   // bounces between the two.
+  //
+  // Non-live (scrub, paused, export): exact seek every call — deterministic.
+  // Live (GUI play): seeking every frame forces a decode per frame per video
+  // and tanks the framerate with a couple of 4K clips, so instead the element
+  // plays natively and we only seek when it drifts from the target — which
+  // also covers segment wraps. Ping-pong's backward leg can't play natively
+  // (no negative playbackRate), so it falls back to per-frame seeks.
   function syncVideo(t) {
     if (current.source !== 'video' || !videoEl.src) return;
     const dur = videoEl.duration;
@@ -366,17 +390,34 @@ export function mount(el, props, _ctx) {
     // `videoHold` is the legacy boolean; videoEnd supersedes it.
     const mode = current.videoEnd ?? (current.videoHold ? 'hold' : 'loop');
     let target;
+    let forward = true;   // is the picture advancing in real time right now?
     if (span <= 0.001) {
       target = start;
+      forward = false;
     } else if (mode === 'hold') {
       target = Math.min(start + t, end);
+      forward = start + t < end;
     } else if (mode === 'ping-pong') {
       const period = 2 * span;
       const pos = t % period;
-      target = start + (pos < span ? pos : period - pos);   // triangle wave start↔end
+      forward = pos < span;
+      target = start + (forward ? pos : period - pos);   // triangle wave start↔end
     } else {
       target = start + (t % span);
     }
+
+    if (live && forward) {
+      playVideo();
+      const drift = videoEl.currentTime - target;
+      // Ahead (overshot the segment end / wrapped) or well behind (stalled):
+      // snap. Asymmetric so ordinary frame-quantisation jitter never seeks.
+      if (drift > LIVE_AHEAD_TOLERANCE || drift < -LIVE_BEHIND_TOLERANCE) {
+        videoEl.currentTime = target;
+      }
+      return;
+    }
+
+    pauseVideo();
     if (Math.abs(videoEl.currentTime - target) > 0.005) {
       videoEl.currentTime = target;
       trackSeek(videoSeek(videoEl, target));

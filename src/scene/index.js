@@ -190,7 +190,10 @@ export function createScene({ renderer }) {
     }
     state.animatedNodes = animatedNow;
 
-    renderer.update(t);                             // time-driven components
+    // Time-driven components. `live` tells them this is real-time playback
+    // (GUI play loop) rather than a scrub / export frame, so e.g. video can
+    // play natively instead of seeking every frame.
+    renderer.update(t, { live: state.playing });
     emit('time-changed', t);
   }
 
@@ -203,6 +206,9 @@ export function createScene({ renderer }) {
   function pause() {
     if (!state.playing) return;
     state.playing = false;
+    // Re-sync components at the paused time in non-live mode so anything
+    // running natively (video) stops on the exact frame.
+    renderer.update(state.time, { live: false });
     emit('play-state-changed', false);
   }
 
