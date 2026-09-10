@@ -189,6 +189,16 @@
   border-color: var(--accent);
 }
 
+/* Colour match row (right rail, Media) */
+.match-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+.match-actions select.control__input { flex: 1; min-width: 0; }
+
 /* Animations panel ────────────────────────────────────────────── */
 
 .anim-add-row {

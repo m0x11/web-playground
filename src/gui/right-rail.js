@@ -4,6 +4,8 @@ import { getComponent, withDefaults } from '../components/index.js';
 import { createControl, isVisible, watchersOf } from './controls/index.js';
 import { createSlider } from './controls/slider.js';
 import { mountAnimationsPanel } from './animations-panel.js';
+import { matchColor } from '../media/color-match.js';
+import { GRADING_DEFAULTS } from '../media/grading.js';
 
 export function mountRightRail(el, scene) {
   el.innerHTML = `
@@ -94,6 +96,80 @@ export function mountRightRail(el, scene) {
       });
       propsBody.appendChild(control);
     }
+
+    if (Comp.schema.name === 'Media') propsBody.appendChild(renderColorMatch(id));
+  }
+
+  // "Match colour" row — pick another Media block, press match, and this
+  // block's exposure / contrast / saturation / temperature / tint are set
+  // so its overall tone and cast follow the reference. Reset clears all
+  // grading back to neutral.
+  let lastMatchRef = null;
+  function renderColorMatch(id) {
+    const row = document.createElement('div');
+    row.className = 'control control--match';
+
+    const label = document.createElement('label');
+    label.className = 'control__label';
+    label.textContent = 'Match';
+
+    const select = document.createElement('select');
+    select.className = 'control__input';
+    const others = allMediaIds().filter(x => x !== id);
+    if (others.length === 0) {
+      const o = document.createElement('option');
+      o.textContent = '(no other media)';
+      select.appendChild(o);
+      select.disabled = true;
+    } else {
+      for (const other of others) {
+        const o = document.createElement('option');
+        o.value = other;
+        o.textContent = other;
+        if (other === lastMatchRef) o.selected = true;
+        select.appendChild(o);
+      }
+    }
+
+    const matchBtn = document.createElement('button');
+    matchBtn.className = 'asset-btn';
+    matchBtn.textContent = 'match';
+    matchBtn.disabled = others.length === 0;
+    matchBtn.title = 'grade this block to match the chosen one';
+    matchBtn.addEventListener('click', () => {
+      lastMatchRef = select.value;
+      try {
+        scene.updateProps(id, matchColor(scene, id, select.value));
+        renderProps();
+      } catch (err) {
+        alert(`Colour match failed: ${err.message}`);
+      }
+    });
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'asset-btn asset-btn--clear';
+    resetBtn.textContent = 'reset';
+    resetBtn.title = 'clear all grading';
+    resetBtn.addEventListener('click', () => {
+      scene.updateProps(id, { ...GRADING_DEFAULTS });
+      renderProps();
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'match-actions';
+    actions.append(select, matchBtn, resetBtn);
+    row.append(label, actions);
+    return row;
+  }
+
+  function allMediaIds() {
+    const out = [];
+    (function walk(n) {
+      if (!n) return;
+      if (n.component === 'Media') out.push(n.id);
+      for (const c of n.children ?? []) walk(c);
+    })(scene.getRootNode());
+    return out;
   }
 
   // Bound the videoStart / videoStop sliders to the actual video's duration.
